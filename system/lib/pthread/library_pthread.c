@@ -831,6 +831,10 @@ int emscripten_dispatch_to_thread_async_(pthread_t target_thread,
 // the main thread is waiting, we wake it up before waking up any workers.
 EMSCRIPTEN_KEEPALIVE void* _emscripten_main_thread_futex;
 
+// Stores the memory address that audio worklets are waiting on, if any. If
+// a worklet is waiting, we wake it up before waking up any workers.
+EMSCRIPTEN_KEEPALIVE void* _emscripten_audio_worklet_futex;
+
 void __emscripten_init_main_thread_js(void* tb);
 
 static void *dummy_tsd[1] = { 0 };

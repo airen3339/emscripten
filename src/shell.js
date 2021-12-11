@@ -21,6 +21,9 @@
 // after the generated code, you will need to define   var Module = {};
 // before the code. Then that object will be used in the code, and you
 // can continue to use Module afterwards as well.
+// If running as an audio worklet, pull the Module object from the global scope
+// where it gets set up in worker.js that's loaded in the first addModule call
+// and only shares the global scope with the main js
 #if USE_CLOSURE_COMPILER
 // if (!Module)` is crucial for Closure Compiler here as it will otherwise replace every `Module` occurrence with a string
 var /** @type {{
@@ -31,8 +34,18 @@ var /** @type {{
   preloadResults: Object
 }}
  */ Module;
+#if ENVIRONMENT_MAY_BE_AUDIOWORKLET
+if(typeof AudioWorkletGlobalScope === 'function') {
+  Module = globalThis.Module
+}
+#endif
 if (!Module) /** @suppress{checkTypes}*/Module = {"__EMSCRIPTEN_PRIVATE_MODULE_EXPORT_NAME_SUBSTITUTION__":1};
 #else
+#if ENVIRONMENT_MAY_BE_AUDIOWORKLET
+if(typeof AudioWorkletGlobalScope === 'function') {
+  var Module = globalThis.Module
+}
+#endif
 var Module = typeof {{{ EXPORT_NAME }}} !== 'undefined' ? {{{ EXPORT_NAME }}} : {};
 #endif // USE_CLOSURE_COMPILER
 
@@ -99,14 +112,16 @@ var ENVIRONMENT_IS_WORKER = {{{ ENVIRONMENT === 'worker' }}};
 #endif
 var ENVIRONMENT_IS_NODE = {{{ ENVIRONMENT === 'node' }}};
 var ENVIRONMENT_IS_SHELL = {{{ ENVIRONMENT === 'shell' }}};
+var ENVIRONMENT_IS_AUDIOWORKLET = {{{ ENVIRONMENT === 'worklet' }}};
 #else // ENVIRONMENT
 // Attempt to auto-detect the environment
 var ENVIRONMENT_IS_WEB = typeof window === 'object';
 var ENVIRONMENT_IS_WORKER = typeof importScripts === 'function';
+var ENVIRONMENT_IS_AUDIOWORKLET = typeof AudioWorkletGlobalScope === 'function';
 // N.b. Electron.js environment is simultaneously a NODE-environment, but
 // also a web environment.
 var ENVIRONMENT_IS_NODE = typeof process === 'object' && typeof process.versions === 'object' && typeof process.versions.node === 'string';
-var ENVIRONMENT_IS_SHELL = !ENVIRONMENT_IS_WEB && !ENVIRONMENT_IS_NODE && !ENVIRONMENT_IS_WORKER;
+var ENVIRONMENT_IS_SHELL = !ENVIRONMENT_IS_WEB && !ENVIRONMENT_IS_NODE && !ENVIRONMENT_IS_WORKER && !ENVIRONMENT_IS_AUDIOWORKLET;
 #endif // ENVIRONMENT
 
 #if ASSERTIONS
@@ -386,7 +401,13 @@ if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
   }
 
   setWindowTitle = function(title) { document.title = title };
-} else
+} 
+#if ENVIRONMENT_MAY_BE_AUDIOWORKLET
+else if (ENVIRONMENT_IS_AUDIOWORKLET) {
+  // Nothing for worklets!
+} 
+#endif // ENVIRONMENT_MAY_BE_AUDIOWORKLET
+else
 #endif // ENVIRONMENT_MAY_BE_WEB || ENVIRONMENT_MAY_BE_WORKER
 {
 #if ASSERTIONS
@@ -460,7 +481,7 @@ assert(typeof Module['TOTAL_MEMORY'] === 'undefined', 'Module.TOTAL_MEMORY has b
 {{{ makeRemovedRuntimeFunction('alignMemory') }}}
 
 #if USE_PTHREADS
-assert(ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER || ENVIRONMENT_IS_NODE, 'Pthreads do not work in this environment yet (need Web Workers, or an alternative to them)');
+assert(ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER || ENVIRONMENT_IS_NODE || ENVIRONMENT_IS_AUDIOWORKLET, 'Pthreads do not work in this environment yet (need Web Workers, or an alternative to them)');
 #endif // USE_PTHREADS
 
 #if !ENVIRONMENT_MAY_BE_WEB
