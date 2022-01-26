@@ -742,33 +742,29 @@ def make_export_wrappers(exports, delay_assignment):
     # The emscripten stack functions are called very early (by writeStackCookie) before
     # the runtime is initialized so we can't create these wrappers that check for
     # runtimeInitialized.
-    if settings.ASSERTIONS and not name.startswith('emscripten_stack_'):
+    if not name.startswith('emscripten_stack_'):
       # With assertions enabled we create a wrapper that are calls get routed through, for
       # the lifetime of the program.
-      if delay_assignment:
-        wrappers.append('''\
-/** @type {function(...*):?} */
-var %(mangled)s = Module["%(mangled)s"] = createExportWrapper("%(name)s");
-''' % {'mangled': mangled, 'name': name})
-      else:
-        wrappers.append('''\
-/** @type {function(...*):?} */
-var %(mangled)s = Module["%(mangled)s"] = createExportWrapper("%(name)s", asm);
-''' % {'mangled': mangled, 'name': name})
-    elif delay_assignment:
       # With assertions disabled the wrapper will replace the global var and Module var on
       # first use.
+      if settings.ASSERTIONS and not delay_assignment:
+        wrappers.append(f'''\
+createExportWrapper("{name}", "{mangled}", asm);
+''')
+      else:
+        wrappers.append(f'''\
+createExportWrapper("{name}", "{mangled}");
+''')
+    elif delay_assignment:
       wrappers.append('''\
-/** @type {function(...*):?} */
 var %(mangled)s = Module["%(mangled)s"] = function() {
   return (%(mangled)s = Module["%(mangled)s"] = Module["asm"]["%(name)s"]).apply(null, arguments);
 };
 ''' % {'mangled': mangled, 'name': name})
     else:
-      wrappers.append('''\
-/** @type {function(...*):?} */
-var %(mangled)s = Module["%(mangled)s"] = asm["%(name)s"]
-''' % {'mangled': mangled, 'name': name})
+      wrappers.append(f'''\
+var {mangled} = Module["{mangled}"] = asm["{name}"]
+''')
   return wrappers
 
 
