@@ -5252,6 +5252,15 @@ window.close = function() {
   def test_wasm_worker_semaphore_try_acquire(self):
     self.btest(test_file('wasm_worker/semaphore_try_acquire.c'), expected='0', args=['-sWASM_WORKERS'])
 
+  # Tests that operating malloc from Wasm Workers is thread-safe.
+  @also_with_minimal_runtime
+  def test_wasm_worker_thread_safe_emmalloc(self):
+    self.btest(test_file('wasm_worker/thread_safe_malloc.cpp'), expected='0', args=['-sWASM_WORKERS', '-DEMMALLOC', '-sMALLOC=emmalloc-debug'])
+
+  @also_with_minimal_runtime
+  def test_wasm_worker_thread_safe_dlmalloc(self):
+    self.btest(test_file('wasm_worker/thread_safe_malloc.cpp'), expected='0', args=['-sWASM_WORKERS', '-sMALLOC=dlmalloc'])
+
   @no_firefox('no 4GB support yet')
   @require_v8
   def test_zzz_zzz_4gb(self):

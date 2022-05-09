@@ -1281,6 +1281,8 @@ class libmalloc(MTLibrary):
     self.memvalidate = kwargs.pop('memvalidate')
     self.verbose = kwargs.pop('verbose')
     self.is_debug = kwargs.pop('is_debug') or self.memvalidate or self.verbose
+    self.thread_safe = kwargs.pop('thread_safe')
+    self.use_spinlocks = kwargs.pop('use_spinlocks')
 
     super().__init__(**kwargs)
 
@@ -1306,15 +1308,25 @@ class libmalloc(MTLibrary):
       cflags += ['-DMALLOC_FAILURE_ACTION=', '-DEMSCRIPTEN_NO_ERRNO']
     if self.is_tracing:
       cflags += ['--tracing']
+    # Target dlmalloc multithreading aware implementation if using pthreads or Wasm Workers
+    cflags += [f'-DUSE_LOCKS={self.thread_safe}']
+    # When using Wasm Workers, target spinlocks. Otherwise target pthread mutexes when using pthreads.
+    cflags += [f'-DUSE_SPIN_LOCKS={self.use_spinlocks}']
+
     return cflags
 
   def get_base_name_prefix(self):
     return 'lib%s' % self.malloc
 
   def get_base_name(self):
-    name = super().get_base_name()
+    name = self.get_base_name_prefix()
     if self.is_debug and not self.memvalidate and not self.verbose:
       name += '-debug'
+
+    # Add the prefixes for malloc ('-mt' / '-ww') after the '-debug' part, since the -debug string
+    # is part of the user-submitted -sMALLOC prefix (e.g. -sMALLOC=dlmalloc-debug)
+    name += super().get_base_name().replace(self.get_base_name_prefix(), '')
+
     if not self.use_errno:
       # emmalloc doesn't actually use errno, but it's easier to build it again
       name += '-noerrno'
@@ -1343,6 +1355,8 @@ class libmalloc(MTLibrary):
       is_tracing=settings.EMSCRIPTEN_TRACING,
       memvalidate='memvalidate' in settings.MALLOC,
       verbose='verbose' in settings.MALLOC,
+      use_spinlocks=settings.WASM_WORKERS,
+      thread_safe=settings.SHARED_MEMORY,
       **kwargs
     )
 
