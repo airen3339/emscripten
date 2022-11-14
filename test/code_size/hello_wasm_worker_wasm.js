@@ -9,7 +9,7 @@ function l(a) {
 }
 
 function n(a) {
-    a = a.data;
+    a = a.data || a;
     let d = a._wsc;
     d && f.get(d)(...a.x);
 }
