@@ -9218,6 +9218,7 @@ NODEFS is no longer included by default; build with -lnodefs.js
     'pthread': (['-pthread', '-sPTHREAD_POOL_SIZE=2'],),
     'wasm_worker': (['-sWASM_WORKERS'],)
   })
+  @no_wasm64("node pthreads not yet supported with MEMORY64")
   # Cannot use @node_pthreads here, since it links with -sUSE_PTHREADS
   def test_stdio_locking(self, args):
     self.set_setting('EXIT_RUNTIME')
