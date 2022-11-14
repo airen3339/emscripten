@@ -40,7 +40,7 @@ char *char_repeat(int n, char c) {
   return dest;
 }
 
-void thread_main(void *arg) {
+void thread_main() {
   char *msg = char_repeat(100, 'a');
   for (int i = 0; i < 10; ++i)
     printf("%s\n", msg);
@@ -61,10 +61,10 @@ int main() {
   void *thread_rtn;
   int rc;
 
-  rc = pthread_create(&thread[0], NULL, thread_main, NULL);
+  rc = pthread_create(&thread[0], NULL, (void* (*)(void*))thread_main, NULL);
   assert(rc == 0);
 
-  rc = pthread_create(&thread[1], NULL, thread_main, NULL);
+  rc = pthread_create(&thread[1], NULL, (void* (*)(void*))thread_main, NULL);
   assert(rc == 0);
 
   rc = pthread_join(thread[0], &thread_rtn);
@@ -79,8 +79,8 @@ int main() {
 #else
   worker[0] = emscripten_malloc_wasm_worker(/*stack size: */1024);
   worker[1] = emscripten_malloc_wasm_worker(/*stack size: */1024);
-  emscripten_wasm_worker_post_function_vi(worker[0], (void (*)(int))thread_main, 0);
-  emscripten_wasm_worker_post_function_vi(worker[1], (void (*)(int))thread_main, 0);
+  emscripten_wasm_worker_post_function_v(worker[0], (void (*))thread_main);
+  emscripten_wasm_worker_post_function_v(worker[1], (void (*))thread_main);
 
   // Terminate both workers after a small delay
   emscripten_set_timeout(terminate_worker, 1000, 0);
