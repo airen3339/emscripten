@@ -261,7 +261,7 @@ if (ENVIRONMENT_IS_NODE) {
 
   Module['inspect'] = function () { return '[Emscripten Module object]'; };
 
-#if USE_PTHREADS
+#if USE_PTHREADS || WASM_WORKERS
   let nodeWorkerThreads;
   try {
     nodeWorkerThreads = require('worker_threads');
@@ -421,10 +421,12 @@ if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
 #endif // ASSERTIONS
 }
 
-#if ENVIRONMENT_MAY_BE_NODE && USE_PTHREADS
+#if ENVIRONMENT_MAY_BE_NODE && (USE_PTHREADS || WASM_WORKERS)
 if (ENVIRONMENT_IS_NODE) {
   // Polyfill the performance object, which emscripten pthreads support
   // depends on for good timing.
+  // Note: this is no longer needed on Node.js >= 16, see:
+  // https://nodejs.org/api/globals.html#performance
   if (typeof performance == 'undefined') {
     global.performance = require('perf_hooks').performance;
   }

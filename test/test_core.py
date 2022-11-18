@@ -9220,11 +9220,16 @@ NODEFS is no longer included by default; build with -lnodefs.js
     self.set_setting('USE_PTHREADS')
     self.do_run_in_out_file_test('core/pthread/emscripten_futexes.c')
 
-  @node_pthreads
-  def test_stdio_locking(self):
-    self.set_setting('PTHREAD_POOL_SIZE', '2')
+  @parameterized({
+    'pthread': (['-pthread', '-sPTHREAD_POOL_SIZE=2'],),
+    'wasm_worker': (['-sWASM_WORKERS'],)
+  })
+  @no_wasm64("node pthreads not yet supported with MEMORY64")
+  # Cannot use @node_pthreads here, since it links with -sUSE_PTHREADS
+  def test_stdio_locking(self, args):
     self.set_setting('EXIT_RUNTIME')
-    self.do_run_in_out_file_test('core/test_stdio_locking.c')
+    self.node_args += shared.node_pthread_flags()
+    self.do_run_in_out_file_test('core/test_stdio_locking.c', emcc_args=args)
 
   @needs_dylink
   @node_pthreads

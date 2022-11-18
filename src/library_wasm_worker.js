@@ -41,7 +41,12 @@ mergeInto(LibraryManager.library, {
 
   // Executes a wasm function call received via a postMessage.
   _wasm_worker_runPostMessage: function(e) {
-    let data = e.data, wasmCall = data['_wsc']; // '_wsc' is short for 'wasm call', trying to use an identifier name that will never conflict with user code
+    // Node.js passes the data directly.
+    let data = e.data
+#if ENVIRONMENT_MAY_BE_NODE
+      || e
+#endif
+      , wasmCall = data['_wsc']; // '_wsc' is short for 'wasm call', trying to use an identifier name that will never conflict with user code
     wasmCall && getWasmTableEntry(wasmCall)(...data['x']);
   },
 
@@ -125,7 +130,12 @@ mergeInto(LibraryManager.library, {
       'sb': stackLowestAddress, // sb = stack bottom (lowest stack address, SP points at this when stack is full)
       'sz': stackSize,          // sz = stack size
     });
-    worker.addEventListener('message', __wasm_worker_runPostMessage);
+#if ENVIRONMENT_MAY_BE_NODE
+    if (ENVIRONMENT_IS_NODE) {
+      worker.on('message', __wasm_worker_runPostMessage);
+    } else
+#endif
+      worker.addEventListener('message', __wasm_worker_runPostMessage);
     return _wasm_workers_id++;
   },
 
