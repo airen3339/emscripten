@@ -42,12 +42,12 @@ var WasiLibrary = {
   $getEnvStrings: function() {
     if (!getEnvStrings.strings) {
       // Default values.
-#if !DETERMINISTIC
-      // Browser language detection #8751
-      var lang = ((typeof navigator == 'object' && navigator.languages && navigator.languages[0]) || 'C').replace('-', '_') + '.UTF-8';
-#else
+#if DETERMINISTIC
       // Deterministic language detection, ignore the browser's language.
       var lang = 'C.UTF-8';
+#else
+      // Browser language detection #8751
+      var lang = ((typeof navigator == 'object' && navigator.languages && navigator.languages[0]) || 'C').replace('-', '_') + '.UTF-8';
 #endif
       var env = {
         'USER': 'web_user',
@@ -58,6 +58,12 @@ var WasiLibrary = {
         'LANG': lang,
         '_': getExecutableName()
       };
+#if ENVIRONMENT_MAY_BE_NODE && !DETERMINISTIC
+      if (ENVIRONMENT_IS_NODE) {
+        // Under node we mirror then entire outer environment
+        env = process.env;
+      }
+#endif
       // Apply the user-provided values, if any.
       for (var x in ENV) {
         // x is a key in ENV; if ENV[x] is undefined, that means it was

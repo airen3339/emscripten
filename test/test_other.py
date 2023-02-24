@@ -7282,13 +7282,25 @@ int main() {}
         seen = self.run_js('test.js', engine=engine, assert_returncode=NON_ZERO)
         self.assertContained('Module.ENVIRONMENT has been deprecated. To force the environment, use the ENVIRONMENT compile-time option (for example, -sENVIRONMENT=web or -sENVIRONMENT=node', seen)
 
+  @requires_node
+  @with_env_modify({'FOO': 'bar'})
+  def test_node_environ(self):
+     create_file('src.c', r'''
+      #include <stdlib.h>
+      #include <stdio.h>
+      int main() {
+        printf("|%s|\n", getenv("FOO"));
+      }
+    ''')
+     self.do_runf('src.c', '|bar|')
+
   def test_override_c_environ(self):
     create_file('pre.js', r'''
       var Module = {
         preRun: [function() { ENV.hello = 'world'; ENV.LANG = undefined; }]
       };
     ''')
-    create_file('src.cpp', r'''
+    create_file('src.c', r'''
       #include <stdlib.h>
       #include <stdio.h>
       int main() {
@@ -7296,7 +7308,7 @@ int main() {}
         printf("LANG is %s\n", getenv("LANG") ? "set" : "not set");
       }
     ''')
-    self.run_process([EMXX, 'src.cpp', '--pre-js', 'pre.js'])
+    self.run_process([EMCC, 'src.c', '--pre-js', 'pre.js'])
     output = self.run_js('a.out.js')
     self.assertContained('|world|', output)
     self.assertContained('LANG is not set', output)
@@ -7306,10 +7318,10 @@ int main() {}
         preRun: [function(module) { module.ENV.hello = 'world' }]
       };
     ''')
-    self.run_process([EMXX, 'src.cpp', '--pre-js', 'pre.js', '-sEXPORTED_RUNTIME_METHODS=ENV'])
+    self.run_process([EMCC, 'src.c', '--pre-js', 'pre.js', '-sEXPORTED_RUNTIME_METHODS=ENV'])
     self.assertContained('|world|', self.run_js('a.out.js'))
 
-    self.run_process([EMXX, 'src.cpp', '--pre-js', 'pre.js', '-sEXPORTED_RUNTIME_METHODS=ENV', '-sMODULARIZE'])
+    self.run_process([EMCC, 'src.c', '--pre-js', 'pre.js', '-sEXPORTED_RUNTIME_METHODS=ENV', '-sMODULARIZE'])
     output = self.run_process(config.NODE_JS + ['-e', 'require("./a.out.js")();'], stdout=PIPE, stderr=PIPE)
     self.assertContained('|world|', output.stdout)
 
