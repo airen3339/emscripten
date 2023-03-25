@@ -83,8 +83,22 @@ var LibraryGL = {
     return HEAPU16;
   },
 
+  // Returns the appropriate amount of shifts for a heap (based on the element
+  // size in the heap).
   $heapAccessShiftForWebGLHeap: function(heap) {
     return 31 - Math.clz32(heap.BYTES_PER_ELEMENT);
+  },
+
+  // Receives a pointer and a heap, and shifts the pointer the appropriate
+  // amount of times for that heap (based on the element size in the heap).
+  $getShiftedPtrForWebGLHeap__deps: ['$heapAccessShiftForWebGLHeap'],
+  $getShiftedPtrForWebGLHeap: function(ptr, heap) {
+    var shifts = heapAccessShiftForWebGLHeap(heap);
+#if CAN_ADDRESS_2GB
+    return ptr >>> shifts;
+#else
+    return ptr >> shifts;
+#endif
   },
 
 #if MIN_WEBGL_VERSION == 1
@@ -1514,7 +1528,7 @@ var LibraryGL = {
 
   glTexImage2D__deps: ['$emscriptenWebGLGetTexPixelData'
 #if MAX_WEBGL_VERSION >= 2
-                       , '$heapObjectForWebGLType', '$heapAccessShiftForWebGLHeap'
+                       , '$heapObjectForWebGLType', '$getShiftedPtrForWebGLHeap'
 #endif
   ],
   glTexImage2D: function(target, level, internalFormat, width, height, border, format, type, pixels) {
@@ -1543,7 +1557,7 @@ var LibraryGL = {
         GLctx.texImage2D(target, level, internalFormat, width, height, border, format, type, pixels);
       } else if (pixels) {
         var heap = heapObjectForWebGLType(type);
-        GLctx.texImage2D(target, level, internalFormat, width, height, border, format, type, heap, pixels >> heapAccessShiftForWebGLHeap(heap));
+        GLctx.texImage2D(target, level, internalFormat, width, height, border, format, type, heap, getShiftedPtrForWebGLHeap(pixels, heap));
       } else {
         GLctx.texImage2D(target, level, internalFormat, width, height, border, format, type, null);
       }
@@ -1555,7 +1569,7 @@ var LibraryGL = {
 
   glTexSubImage2D__deps: ['$emscriptenWebGLGetTexPixelData'
 #if MAX_WEBGL_VERSION >= 2
-                          , '$heapObjectForWebGLType', '$heapAccessShiftForWebGLHeap'
+                          , '$heapObjectForWebGLType', '$getShiftedPtrForWebGLHeap'
 #endif
   ],
   glTexSubImage2D: function(target, level, xoffset, yoffset, width, height, format, type, pixels) {
@@ -1574,7 +1588,7 @@ var LibraryGL = {
         GLctx.texSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels);
       } else if (pixels) {
         var heap = heapObjectForWebGLType(type);
-        GLctx.texSubImage2D(target, level, xoffset, yoffset, width, height, format, type, heap, pixels >> heapAccessShiftForWebGLHeap(heap));
+        GLctx.texSubImage2D(target, level, xoffset, yoffset, width, height, format, type, heap, getShiftedPtrForWebGLHeap(pixels, heap));
       } else {
         GLctx.texSubImage2D(target, level, xoffset, yoffset, width, height, format, type, null);
       }
@@ -1588,7 +1602,7 @@ var LibraryGL = {
 
   glReadPixels__deps: ['$emscriptenWebGLGetTexPixelData'
 #if MAX_WEBGL_VERSION >= 2
-                       , '$heapObjectForWebGLType', '$heapAccessShiftForWebGLHeap'
+                       , '$heapObjectForWebGLType', '$getShiftedPtrForWebGLHeap'
 #endif
   ],
   glReadPixels: function(x, y, width, height, format, type, pixels) {
@@ -1598,7 +1612,7 @@ var LibraryGL = {
         GLctx.readPixels(x, y, width, height, format, type, pixels);
       } else {
         var heap = heapObjectForWebGLType(type);
-        GLctx.readPixels(x, y, width, height, format, type, heap, pixels >> heapAccessShiftForWebGLHeap(heap));
+        GLctx.readPixels(x, y, width, height, format, type, heap, getShiftedPtrForWebGLHeap(pixels, heap));
       }
       return;
     }
