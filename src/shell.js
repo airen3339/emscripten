@@ -141,20 +141,36 @@ var ENVIRONMENT_IS_PTHREAD = Module['ENVIRONMENT_IS_PTHREAD'] || false;
 var ENVIRONMENT_IS_WASM_WORKER = Module['$ww'];
 #endif
 
-#if SHARED_MEMORY && !MODULARIZE
-// In MODULARIZE mode _scriptDir needs to be captured already at the very top of the page immediately when the page is parsed, so it is generated there
-// before the page load. In non-MODULARIZE modes generate it here.
-var _scriptDir = (typeof document != 'undefined' && document.currentScript) ? document.currentScript.src : undefined;
+#if EXPORT_ES6 && USE_ES6_IMPORT_META
+var currentScript = import.meta.url;
+#else
+var currentScript;
 
-if (ENVIRONMENT_IS_WORKER) {
-  _scriptDir = self.location.href;
-}
 #if ENVIRONMENT_MAY_BE_NODE
-else if (ENVIRONMENT_IS_NODE) {
-  _scriptDir = __filename;
-}
+if (typeof __filename !== 'undefined') { // Node
+  currentScript = __filename;
+} else
 #endif // ENVIRONMENT_MAY_BE_NODE
-#endif // SHARED_MEMORY && !MODULARIZE
+#if ENVIRONMENT_MAY_BE_WORKER
+if (ENVIRONMENT_IS_WORKER) {
+  currentScript = self.location.href;
+} else
+#endif // ENVIRONMENT_MAY_BE_WORKER
+#if ENVIRONMENT_MAY_BE_WEB
+#if MODULARIZE
+// When MODULARIZE this JS may be executed later, after document.currentScript is gone, so we store it in _scriptSrc.
+if (ENVIRONMENT_IS_WEB) {
+  currentScript = _scriptSrc;
+} else
+#else
+// In non-MODULARIZE mode we generate it here.
+if (typeof document != 'undefined' && document.currentScript) { // web
+  currentScript = document.currentScript.src;
+} else
+#endif
+#endif // ENVIRONMENT_MAY_BE_WEB
+  currentScript = '';
+#endif // EXPORT_ES6 && USE_ES6_IMPORT_META
 
 // `/` should be present at the end if `scriptDirectory` is not empty
 var scriptDirectory = '';
@@ -203,18 +219,14 @@ if (ENVIRONMENT_IS_NODE) {
   var fs = require('fs');
   var nodePath = require('path');
 
-  if (ENVIRONMENT_IS_WORKER) {
-    scriptDirectory = nodePath.dirname(scriptDirectory) + '/';
-  } else {
 #if EXPORT_ES6
-    // EXPORT_ES6 + ENVIRONMENT_IS_NODE always requires use of import.meta.url,
-    // since there's no way getting the current absolute path of the module when
-    // support for that is not available.
-    scriptDirectory = require('url').fileURLToPath(new URL('./', import.meta.url)); // includes trailing slash
+  // EXPORT_ES6 + ENVIRONMENT_IS_NODE always requires use of import.meta.url,
+  // since there's no way getting the current absolute path of the module when
+  // support for that is not available.
+  scriptDirectory = require('url').fileURLToPath(new URL('./', import.meta.url)); // includes trailing slash
 #else
-    scriptDirectory = __dirname + '/';
+  scriptDirectory = __dirname + '/';
 #endif
-  }
 
 #include "node_shell_read.js"
 
@@ -379,28 +391,14 @@ if (ENVIRONMENT_IS_SHELL) {
 // ENVIRONMENT_IS_NODE.
 #if ENVIRONMENT_MAY_BE_WEB || ENVIRONMENT_MAY_BE_WORKER
 if (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) {
-  if (ENVIRONMENT_IS_WORKER) { // Check worker, not web, since window could be polyfilled
-    scriptDirectory = self.location.href;
-  } else if (typeof document != 'undefined' && document.currentScript) { // web
-    scriptDirectory = document.currentScript.src;
-  }
-#if MODULARIZE
-  // When MODULARIZE, this JS may be executed later, after document.currentScript
-  // is gone, so we saved it, and we use it here instead of any other info.
-  if (_scriptDir) {
-    scriptDirectory = _scriptDir;
-  }
-#endif
   // blob urls look like blob:http://site.com/etc/etc and we cannot infer anything from them.
   // otherwise, slice off the final part of the url to find the script directory.
-  // if scriptDirectory does not contain a slash, lastIndexOf will return -1,
-  // and scriptDirectory will correctly be replaced with an empty string.
-  // If scriptDirectory contains a query (starting with ?) or a fragment (starting with #),
+  // if currentScript does not contain a slash, lastIndexOf will return -1,
+  // and scriptDirectory will be an empty string.
+  // If currentScript contains a query (starting with ?) or a fragment (starting with #),
   // they are removed because they could contain a slash.
-  if (scriptDirectory.indexOf('blob:') !== 0) {
-    scriptDirectory = scriptDirectory.substr(0, scriptDirectory.replace(/[?#].*/, "").lastIndexOf('/')+1);
-  } else {
-    scriptDirectory = '';
+  if (currentScript.indexOf('blob:') !== 0) {
+    scriptDirectory = currentScript.substr(0, currentScript.replace(/[?#].*/, "").lastIndexOf('/')+1);
   }
 
 #if ENVIRONMENT && ASSERTIONS

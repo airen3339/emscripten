@@ -13330,3 +13330,17 @@ w:0,t:0x[0-9a-fA-F]+: formatted: 42
     ''')
     err = self.expect_fail([EMCC, test_file('hello_world.c'), '--js-library=lib.js'])
     self.assertContained('Error: Missing C define Foo! If you just added it to struct_info.json, you need to run ./tools/gen_struct_info.py', err)
+
+  @node_pthreads
+  def test_locate_file_abspath_pthread(self):
+    # Verify that `scriptDirectory` is an absolute path when `ENVIRONMENT_IS_WORKER`
+    self.emcc_args += ['-pthread', '--pre-js', 'pre.js']
+    self.set_setting('PROXY_TO_PTHREAD')
+    self.set_setting('EXIT_RUNTIME')
+    create_file('pre.js', '''
+    Module['locateFile'] = (fileName, scriptDirectory) => {
+      assert(nodePath['isAbsolute'](scriptDirectory), `scriptDirectory (${scriptDirectory}) should be an absolute path`);
+      return scriptDirectory + fileName;
+    };
+    ''')
+    self.do_runf(test_file('hello_world.c'), 'hello, world!')
