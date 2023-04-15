@@ -79,6 +79,10 @@ void _embind_register_float(
     const char* name,
     size_t size);
 
+void _embind_register_std_nullptr_t(
+    TYPEID nullptrType,
+    const char* name);
+
 void _embind_register_std_string(
     TYPEID stringType,
     const char* name);
