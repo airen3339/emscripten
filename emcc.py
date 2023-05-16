@@ -2475,6 +2475,10 @@ def phase_linker_setup(options, state, newargs):
       exit_with_error(f'{setting} must be a multiple of WebAssembly page size (64KiB), was {settings[setting]}')
     if settings[setting] >= 2**53:
       exit_with_error(f'{setting} must be smaller than 2^53 bytes due to JS Numbers (doubles) being used to hold pointer addresses in JS side')
+    # When user sets a 2GB limit, they must intend to run in a VM that only supports up to 2GB ArrayBuffers.
+    # That means that the Wasm heap size can support max 2GB - 65536 page sizes.
+    if settings[setting] == 2 * 1024 * 1024 * 1024:
+      settings[setting] = 2 * 1024 * 1024 * 1024 - 65536
 
   check_memory_setting('INITIAL_MEMORY')
   check_memory_setting('MAXIMUM_MEMORY')
