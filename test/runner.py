@@ -390,6 +390,24 @@ def configure():
 def main(args):
   options = parse_args(args)
 
+  # XXX Test: remove access to package.json from Emscripten
+  import os
+  from glob import glob
+  package_files = [y for x in os.walk(utils.path_from_root('.')) for y in glob(os.path.join(x[0], 'package.json'))]
+  for f in package_files:
+    print('XXXX Test runner deleted file ' + f)
+    os.remove(f)
+  package_files = [y for x in os.walk(utils.path_from_root('.')) for y in glob(os.path.join(x[0], 'package-lock.json'))]
+  for f in package_files:
+    print('XXXX Test runner deleted file ' + f)
+    os.remove(f)
+
+#  package_renamed = False
+#  if os.path.isfile(utils.path_from_root('package.json')):
+#    os.rename(utils.path_from_root('package.json'), utils.path_from_root('packageunusedjson.bak'))
+#    os.rename(utils.path_from_root('package-lock.json'), utils.path_from_root('packageunusedjson-lock.bak'))
+#    package_renamed = True
+
   # Some options make sense being set in the environment, others not-so-much.
   # TODO(sbc): eventually just make these command-line only.
   if os.getenv('EMTEST_SAVE_DIR'):
@@ -452,6 +470,7 @@ def main(args):
     return 1
 
   num_failures = run_tests(options, suites)
+
   # Return the number of failures as the process exit code
   # for automating success/failure reporting.  Return codes
   # over 125 are not well supported on UNIX.
