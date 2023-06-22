@@ -51,7 +51,12 @@ min_browser_versions = {
   Feature.JS_BIGINT_INTEGRATION: {
     'chrome': 67,
     'firefox': 68,
+    # Note: Safari 14.1 is enough for wasm-bigint by itself (not that that
+    # shipped only in iOS 14.5, not 14.1, which can be confusing) - but it is
+    # not enough for us as we use BigInt64Array in that mode, and that only
+    # shipped in 15.0, so mark this feature as depending on that version.
     'safari': 150000,
+    'node': 150000,
   },
   Feature.THREADS: {
     'chrome': 74,
@@ -81,27 +86,31 @@ def caniuse(feature):
     setting_value = getattr(settings, setting_name)
     logger.debug(f'cannot use {feature.name} because {setting_name} is too old: {setting_value}')
 
-  if settings.MIN_CHROME_VERSION < min_versions['chrome']:
-    report_missing('MIN_CHROME_VERSION')
-    return False
-  # For edge we just use the same version requirements as chrome since,
-  # at least for modern versions of edge, they share version numbers.
-  if settings.MIN_EDGE_VERSION < min_versions['chrome']:
-    report_missing('MIN_EDGE_VERSION')
-    return False
-  if settings.MIN_FIREFOX_VERSION < min_versions['firefox']:
-    report_missing('MIN_FIREFOX_VERSION')
-    return False
-  if settings.MIN_SAFARI_VERSION < min_versions['safari']:
-    report_missing('MIN_SAFARI_VERSION')
-    return False
-  # IE don't support any non-MVP features
-  if settings.MIN_IE_VERSION != 0x7FFFFFFF:
-    report_missing('MIN_IE_VERSION')
-    return False
-  if 'node' in min_versions and settings.MIN_NODE_VERSION < min_versions['node']:
-    report_missing('MIN_NODE_VERSION')
-    return False
+  if settings.ENVIRONMENT_MAY_BE_WEB or settings.ENVIRONMENT_MAY_BE_WORKER:
+    if settings.MIN_CHROME_VERSION < min_versions['chrome']:
+      report_missing('MIN_CHROME_VERSION')
+      return False
+    # For edge we just use the same version requirements as chrome since,
+    # at least for modern versions of edge, they share version numbers.
+    if settings.MIN_EDGE_VERSION < min_versions['chrome']:
+      report_missing('MIN_EDGE_VERSION')
+      return False
+    if settings.MIN_FIREFOX_VERSION < min_versions['firefox']:
+      report_missing('MIN_FIREFOX_VERSION')
+      return False
+    if settings.MIN_SAFARI_VERSION < min_versions['safari']:
+      report_missing('MIN_SAFARI_VERSION')
+      return False
+    # IE don't support any non-MVP features
+    if settings.MIN_IE_VERSION != 0x7FFFFFFF:
+      report_missing('MIN_IE_VERSION')
+      return False
+
+  if settings.ENVIRONMENT_MAY_BE_NODE:
+    if 'node' in min_versions and settings.MIN_NODE_VERSION < min_versions['node']:
+      report_missing('MIN_NODE_VERSION')
+      return False
+
   return True
 
 

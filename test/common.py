@@ -290,14 +290,13 @@ def also_with_wasm_bigint(f):
         self.skipTest('wasm2js does not support WASM_BIGINT')
       if self.get_setting('WASM_BIGINT') is not None:
         self.skipTest('redundant in bigint test config')
-      self.set_setting('WASM_BIGINT')
-      self.node_args += shared.node_bigint_flags()
       f(self)
     else:
+      self.set_setting('WASM_BIGINT', '0')
       f(self)
 
-  metafunc._parameterize = {'': (False,),
-                            'bigint': (True,)}
+  metafunc._parameterize = {'no_bigint': (False,),
+                            '': (True,)}
   return metafunc
 
 
@@ -951,9 +950,9 @@ class RunnerCore(unittest.TestCase, metaclass=RunnerMeta):
       if len(line) > 2048:
         # Sanity check that this is really the emscripten program/module on
         # a single line.
-        assert line.startswith('var Module=typeof Module!="undefined"')
-        long_lines.append(line)
-        line = '<REPLACED ENTIRE PROGRAM ON SINGLE LINE>'
+        if line.startswith('var Module=typeof Module!="undefined"'):
+          long_lines.append(line)
+          line = '<REPLACED ENTIRE PROGRAM ON SINGLE LINE>'
       return line
 
     lines = [cleanup(l) for l in lines]

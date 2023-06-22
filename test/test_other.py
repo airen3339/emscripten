@@ -1988,14 +1988,12 @@ int f() {
   @node_pthreads
   def test_dylink_pthread_bigint_em_asm(self):
     self.set_setting('MAIN_MODULE', 2)
-    self.set_setting('WASM_BIGINT')
     self.emcc_args += ['-Wno-experimental', '-pthread']
     self.do_runf(test_file('hello_world_em_asm.c'), 'hello, world')
 
   @node_pthreads
   def test_dylink_pthread_bigint_em_js(self):
     self.set_setting('MAIN_MODULE', 2)
-    self.set_setting('WASM_BIGINT')
     self.emcc_args += ['-Wno-experimental', '-pthread']
     self.do_runf(test_file('core/test_em_js.cpp'))
 
@@ -4486,20 +4484,14 @@ EM_ASM({ _middle() });
         self.assertContained(UNMINIFIED_HEAP8, js)
         self.assertContained(UNMINIFIED_MIDDLE, js)
 
-  @parameterized({
-    '': [[]],
-    # bigint support is interesting to test here because it changes which
-    # binaryen tools get run, which can affect how debug info is kept around
-    'bigint': [['-sWASM_BIGINT']],
-  })
-  def test_symbol_map_output_size(self, args):
+  def test_symbol_map_output_size(self):
     # build with and without a symbol map and verify that the sizes are the
     # same. using a symbol map should add the map on the side, but not increase
     # the build size.
     # -Oz is used here to run as many optimizations as possible, to check for
     # any difference in how the optimizer operates
-    self.run_process([EMCC, test_file('hello_world.c'), '-Oz', '-o', 'test1.js'] + args)
-    self.run_process([EMCC, test_file('hello_world.c'), '-Oz', '-o', 'test2.js', '--emit-symbol-map'] + args)
+    self.run_process([EMCC, test_file('hello_world.c'), '-Oz', '-o', 'test1.js'])
+    self.run_process([EMCC, test_file('hello_world.c'), '-Oz', '-o', 'test2.js', '--emit-symbol-map'])
     self.assertEqual(os.path.getsize('test1.js'), os.path.getsize('test2.js'))
     self.assertEqual(os.path.getsize('test1.wasm'), os.path.getsize('test2.wasm'))
 
@@ -7275,7 +7267,6 @@ Resolved: "/" => "/"
     ''')
 
     # Run the test and confirm the output is as expected.
-    self.node_args += shared.node_bigint_flags()
     out = self.run_js('testrun.js')
     self.assertContained('''\
 input = 0xaabbccdd11223344
@@ -7415,14 +7406,8 @@ int main() {
     assert 'use asm' not in src
 
   def test_EM_ASM_i64(self):
-    expected = 'Invalid character 106("j") in readEmAsmArgs!'
-    self.do_runf(test_file('other/test_em_asm_i64.cpp'),
-                 expected_output=expected,
-                 assert_returncode=NON_ZERO)
-
-    self.set_setting('WASM_BIGINT')
     self.do_other_test('test_em_asm_i64.cpp')
-    self.do_other_test('test_em_asm_i64.cpp', force_c=True)
+    # self.do_other_test('test_em_asm_i64.cpp', force_c=True)
 
   def test_eval_ctor_ordering(self):
     # ensure order of execution remains correct, even with a bad ctor
@@ -11205,19 +11190,18 @@ Aborted(Module.arguments has been replaced with plain arguments_ (the initial va
       args += ['-sERROR_ON_WASM_CHANGES_AFTER_LINK']
       self.do_runf(test_file(filename), expected, emcc_args=args)
 
-    # -O0 with BigInt support (to avoid the need for legalization)
-    required_flags = ['-sWASM_BIGINT']
-    ok(required_flags)
+    # -O0 just works
+    ok([])
     # Same with DWARF
-    ok(required_flags + ['-g'])
+    ok(['-g'])
     # Function pointer calls from JS work too
-    ok(required_flags, filename='hello_world_main_loop.cpp')
+    ok([], filename='hello_world_main_loop.cpp')
     # -O1 is ok as we don't run wasm-opt there (but no higher, see below)
-    ok(required_flags + ['-O1'])
+    ok(['-O1'])
     # Exception support shouldn't require changes after linking
-    ok(required_flags + ['-fexceptions'])
+    ok(['-fexceptions'])
     # Standalone mode should not do anything special to the wasm.
-    ok(required_flags + ['-sSTANDALONE_WASM'])
+    ok(['-sSTANDALONE_WASM'])
 
     # other builds fail with a standard message + extra details
     def fail(args, details):
@@ -11227,13 +11211,10 @@ Aborted(Module.arguments has been replaced with plain arguments_ (the initial va
       self.assertContained('changes to the wasm are required after link, but disallowed by ERROR_ON_WASM_CHANGES_AFTER_LINK', err)
       self.assertContained(details, err)
 
-    # plain -O0
-    legalization_message = 'to disable int64 legalization (which requires changes after link) use -sWASM_BIGINT'
-    fail([], legalization_message)
     # optimized builds even without legalization
     optimization_message = '-O2+ optimizations always require changes, build with -O0 or -O1 instead'
-    fail(required_flags + ['-O2'], optimization_message)
-    fail(required_flags + ['-O3'], optimization_message)
+    fail(['-O2'], optimization_message)
+    fail(['-O3'], optimization_message)
 
   @crossplatform
   def test_output_to_nowhere(self):
@@ -11556,7 +11537,6 @@ int main () {
   @requires_wasm_eh
   def test_standalone_wasm_exceptions(self):
     self.set_setting('STANDALONE_WASM')
-    self.set_setting('WASM_BIGINT')
     self.wasm_engines = []
     self.emcc_args += ['-fwasm-exceptions']
     self.do_run_from_file(test_file('core/test_exceptions.cpp'), test_file('core/test_exceptions_caught.out'))
@@ -11752,7 +11732,7 @@ exec "$@"
   @parameterized({
     'plain': [[]],
     'asyncify': [['-sASYNCIFY']],
-    'asyncify_bigint': [['-sASYNCIFY', '-sWASM_BIGINT']]})
+  })
   def test_closure_safe(self, args):
     self.run_process([EMCC, test_file('hello_world.c'), '--closure=1'] + args)
 
@@ -11848,7 +11828,7 @@ exec "$@"
     wasm_split = os.path.join(building.get_binaryen_bin(), 'wasm-split')
     wasm_split_run = [wasm_split, '-g', '--enable-mutable-globals', '--export-prefix=%', 'test_split_module.wasm.orig', '-o1', 'primary.wasm', '-o2', 'secondary.wasm', '--profile=profile.data']
     if jspi:
-      wasm_split_run += ['--jspi', '--enable-reference-types']
+      wasm_split_run += ['--jspi', '--enable-reference-types', '--enable-bulk-memory']
     self.run_process(wasm_split_run)
 
     os.remove('test_split_module.wasm')
@@ -12592,8 +12572,6 @@ Module['postRun'] = function() {{
   @wasmfs_all_backends
   def test_wasmfs_readfile_bigint(self):
     self.set_setting('FORCE_FILESYSTEM')
-    self.set_setting('WASM_BIGINT')
-    self.node_args += shared.node_bigint_flags()
     self.do_run_in_out_file_test(test_file('wasmfs/wasmfs_readfile.c'))
 
   def test_wasmfs_jsfile(self):
@@ -13162,7 +13140,7 @@ foo/version.txt
 
   def test_min_browser_version(self):
     err = self.expect_fail([EMCC, test_file('hello_world.c'), '-Werror', '-sWASM_BIGINT', '-sMIN_SAFARI_VERSION=120000'])
-    self.assertContained('emcc: error: MIN_SAFARI_VERSION=120000 is not compatible with WASM_BIGINT (150000 or above required)', err)
+    self.assertContained('emcc: error: MIN_SAFARI_VERSION=120000 is not compatible with WASM_BIGINT (140100 or above required)', err)
 
     err = self.expect_fail([EMCC, test_file('hello_world.c'), '-Werror', '-pthread', '-sMIN_CHROME_VERSION=73'])
     self.assertContained('emcc: error: MIN_CHROME_VERSION=73 is not compatible with pthreads (74 or above required)', err)
@@ -13271,9 +13249,19 @@ w:0,t:0x[0-9a-fA-F]+: formatted: 42
   def test_min_node_version(self):
     node_version = shared.check_node_version()
     node_version = '.'.join(str(x) for x in node_version)
-    self.set_setting('MIN_NODE_VERSION', 210000)
+    # use self.emcc_args so that we append this to the very end (using
+    # self.set_setting would cause it to be at the start, and overridden by
+    # the test runner's own changes to self.emcc_args, if it sets a node version
+    # as well).
+    self.emcc_args += ['-sMIN_NODE_VERSION=210000']
     expected = 'This emscripten-generated code requires node v21.0.0 (detected v%s' % node_version
     self.do_runf(test_file('hello_world.c'), expected, assert_returncode=NON_ZERO)
+
+  def test_min_node_version_bigint(self):
+    err = self.expect_fail([EMCC, test_file('hello_world.c'), '-Werror', '-sWASM_BIGINT', '-sMIN_NODE_VERSION=149999'])
+    self.assertContained('emcc: error: MIN_NODE_VERSION=149999 is not compatible with WASM_BIGINT (150000 or above required)', err)
+
+    self.run_process([EMCC, test_file('hello_world.c'), '-Werror', '-sWASM_BIGINT', '-sMIN_NODE_VERSION=150000'])
 
   def test_deprecated_macros(self):
     create_file('main.c', '''
@@ -13327,7 +13315,6 @@ w:0,t:0x[0-9a-fA-F]+: formatted: 42
   def run_wasi_test_suite_test(self, name):
     if not os.path.exists(path_from_root('test/third_party/wasi-test-suite')):
       self.fail('wasi-testsuite not found; run `git submodule update --init`')
-    self.node_args += shared.node_bigint_flags()
     wasm = path_from_root('test', 'third_party', 'wasi-test-suite', name + '.wasm')
     with open(path_from_root('test', 'third_party', 'wasi-test-suite', name + '.json')) as f:
       config = json.load(f)

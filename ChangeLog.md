@@ -20,6 +20,7 @@ See docs/process.md for more on how version tagging works.
 
 3.1.42 (in development)
 -----------------------
+- Enable WASM_BIGINT support by default. (#19156)
 - The default minimum Node version of Emscripten output was bumped from 10.19 to
   16.0. To run the output JS in an older version of node, you can use e.g.
   `-sMIN_NODE_VERSION=101900` which will apply the previous minimum version of

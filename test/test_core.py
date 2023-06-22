@@ -206,15 +206,10 @@ def also_with_standalone_wasm(impure=False):
         if not can_do_standalone(self, impure):
           self.skipTest('Test configuration is not compatible with STANDALONE_WASM')
         self.set_setting('STANDALONE_WASM')
-        # we will not legalize the JS ffi interface, so we must use BigInt
-        # support in order for JS to have a chance to run this without trapping
-        # when it sees an i64 on the ffi.
-        self.set_setting('WASM_BIGINT')
         self.emcc_args.append('-Wno-unused-command-line-argument')
         # if we are impure, disallow all wasm engines
         if impure:
           self.wasm_engines = []
-        self.node_args += shared.node_bigint_flags()
         func(self)
 
     metafunc._parameterize = {'': (False,),
@@ -536,9 +531,7 @@ class TestCoreBase(RunnerCore):
   @no_wasm2js('wasm_bigint')
   @requires_node
   def test_i64_invoke_bigint(self):
-    self.set_setting('WASM_BIGINT')
     self.emcc_args += ['-fexceptions']
-    self.node_args += shared.node_bigint_flags()
     self.do_core_test('test_i64_invoke_bigint.cpp')
 
   def test_vararg_copy(self):
@@ -2309,11 +2302,9 @@ int main(int argc, char **argv) {
 
   @no_wasm2js('WASM_BIGINT is not compatible with wasm2js')
   def test_em_js_i64(self):
-    err = self.expect_fail([EMCC, '-Werror', test_file('core/test_em_js_i64.c')])
+    err = self.expect_fail([EMCC, '-sWASM_BIGINT=0', '-Werror', test_file('core/test_em_js_i64.c')])
     self.assertContained('emcc: error: using 64-bit arguments in EM_JS function without WASM_BIGINT is not yet fully supported: `foo`', err)
 
-    self.set_setting('WASM_BIGINT')
-    self.node_args += shared.node_bigint_flags()
     self.do_core_test('test_em_js_i64.c')
 
   def test_em_js_address_taken(self):
@@ -4251,7 +4242,6 @@ ok
       self.skipTest('no modify mode only works with non-optimizing builds')
     if self.get_setting('MEMORY64') == 2:
       self.skipTest('MEMORY64=2 always requires module re-writing')
-    self.set_setting('WASM_BIGINT')
     self.set_setting('ERROR_ON_WASM_CHANGES_AFTER_LINK')
     self.do_basic_dylink_test()
 
@@ -7204,23 +7194,29 @@ void* operator new(size_t size) {
     self.set_setting('EXPORTED_RUNTIME_METHODS', ['dynCall', 'addFunction', 'lengthBytesUTF8', 'getTempRet0', 'setTempRet0'])
     self.do_core_test('EXPORTED_RUNTIME_METHODS.c')
 
+  @no_wasm2js('depends on bigint support directly, which wasm2js disallows')
   @parameterized({
     '': [],
     'minimal_runtime': ['-sMINIMAL_RUNTIME=1']
   })
   def test_dyncall_specific(self, *args):
-    if self.get_setting('WASM_BIGINT') or self.get_setting('MEMORY64'):
-      self.skipTest('not compatible with WASM_BIGINT')
+    if self.get_setting('MEMORY64'):
+      self.skipTest('not compatible with MEMORY64')
+    if self.get_setting('WASM_BIGINT'):
+      # define DYNCALLS because this test does test calling them directly, and
+      # in WASM_BIGINT mode we do not enable them by default (since we can do
+      # more without them - we don't need to legalize)
+      args = list(args) + ['-sDYNCALLS', '-DWASM_BIGINT']
     cases = [
         ('DIRECT', []),
-        ('DYNAMIC_SIG', ['-sDYNCALLS=1']),
+        ('DYNAMIC_SIG', ['-sDYNCALLS']),
       ]
     if '-sMINIMAL_RUNTIME=1' in args:
       self.emcc_args += ['--pre-js', test_file('minimal_runtime_exit_handling.js')]
     else:
       cases += [
         ('EXPORTED', []),
-        ('EXPORTED_DYNAMIC_SIG', ['-sDYNCALLS=1', '-sEXPORTED_RUNTIME_METHODS=dynCall']),
+        ('EXPORTED_DYNAMIC_SIG', ['-sDYNCALLS', '-sEXPORTED_RUNTIME_METHODS=dynCall']),
         ('FROM_OUTSIDE', ['-sEXPORTED_RUNTIME_METHODS=dynCall_iiji'])
       ]
 
@@ -7228,6 +7224,7 @@ void* operator new(size_t size) {
       print(str(args) + ' ' + which)
       self.do_core_test('dyncall_specific.c', emcc_args=['-D' + which] + list(args) + extra_args)
 
+  @no_wasm2js('depends on bigint support directly, which wasm2js disallows')
   @also_with_wasm_bigint
   def test_getValue_setValue(self):
     # these used to be exported, but no longer are by default
@@ -7682,16 +7679,12 @@ void* operator new(size_t size) {
 
   @no_wasm2js('wasm_bigint')
   def test_embind_i64_val(self):
-    self.set_setting('WASM_BIGINT')
     self.emcc_args += ['-lembind']
-    self.node_args += shared.node_bigint_flags()
     self.do_run_in_out_file_test('embind/test_i64_val.cpp', assert_identical=True)
 
   @no_wasm2js('wasm_bigint')
   def test_embind_i64_binding(self):
-    self.set_setting('WASM_BIGINT')
     self.emcc_args += ['-lembind']
-    self.node_args += shared.node_bigint_flags()
     self.do_run_in_out_file_test('embind/test_i64_binding.cpp', assert_identical=True)
 
   def test_embind_no_rtti(self):
@@ -9833,8 +9826,7 @@ wasm64_v8 = make_run('wasm64_v8', emcc_args=['-Wno-experimental', '--profiling-f
                      settings={'MEMORY64': 1}, require_wasm64=True, require_v8=True)
 # MEMORY64=2, or "lowered"
 wasm64l = make_run('wasm64l', emcc_args=['-Wno-experimental', '--profiling-funcs'],
-                   settings={'MEMORY64': 2},
-                   node_args=shared.node_bigint_flags())
+                   settings={'MEMORY64': 2})
 
 lto0 = make_run('lto0', emcc_args=['-flto', '-O0'])
 lto1 = make_run('lto1', emcc_args=['-flto', '-O1'])
@@ -9869,9 +9861,6 @@ wasmfs = make_run('wasmfs', emcc_args=['-O2', '-DWASMFS'], settings={'WASMFS': 1
 core0s = make_run('core2s', emcc_args=['-g'], settings={'SAFE_HEAP': 1})
 core2s = make_run('core2s', emcc_args=['-O2'], settings={'SAFE_HEAP': 1})
 core2ss = make_run('core2ss', emcc_args=['-O2'], settings={'STACK_OVERFLOW_CHECK': 2})
-
-bigint = make_run('bigint', emcc_args=['--profiling-funcs'], settings={'WASM_BIGINT': 1},
-                  node_args=shared.node_bigint_flags())
 
 # Add DEFAULT_TO_CXX=0
 strict = make_run('strict', emcc_args=[], settings={'STRICT': 1})
