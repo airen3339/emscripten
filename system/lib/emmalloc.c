@@ -115,6 +115,12 @@ static volatile uint8_t multithreadingLock = 0;
 #define MALLOC_RELEASE() __sync_lock_release(&multithreadingLock)
 // Test code to ensure we have tight malloc acquire/release guards in place.
 #define ASSERT_MALLOC_IS_ACQUIRED() assert(multithreadingLock == 1)
+#elif !defined(NDEBUG)
+// In singlethreaded mode with assertions, still check that the locking behavior is consistent.
+static volatile uint8_t assertedMultithreadingLock = 0;
+#define MALLOC_ACQUIRE() do { assert(assertedMultithreadingLock == 0); assertedMultithreadingLock = 1; } while(0)
+#define MALLOC_RELEASE() do { assert(assertedMultithreadingLock == 1); assertedMultithreadingLock = 0; } while(0)
+#define ASSERT_MALLOC_IS_ACQUIRED() assert(assertedMultithreadingLock == 1)
 #else
 // In singlethreaded builds, no need for locking.
 #define MALLOC_ACQUIRE() ((void)0)
@@ -243,6 +249,9 @@ static int compute_free_list_bucket(size_t allocSize)
 
 static Region *prev_region(Region *region)
 {
+#ifdef EMMALLOC_MEMVALIDATE
+  ASSERT_MALLOC_IS_ACQUIRED();
+#endif
   size_t prevRegionSize = ((size_t*)region)[-1];
   prevRegionSize = DECODE_CEILING_SIZE(prevRegionSize);
   return (Region*)((uint8_t*)region - prevRegionSize);
@@ -250,32 +259,50 @@ static Region *prev_region(Region *region)
 
 static Region *next_region(Region *region)
 {
+#ifdef EMMALLOC_MEMVALIDATE
+  ASSERT_MALLOC_IS_ACQUIRED();
+#endif
   return (Region*)((uint8_t*)region + region->size);
 }
 
 static size_t region_ceiling_size(Region *region)
 {
+#ifdef EMMALLOC_MEMVALIDATE
+  ASSERT_MALLOC_IS_ACQUIRED();
+#endif
   return ((size_t*)((uint8_t*)region + region->size))[-1];
 }
 
 static bool region_is_free(Region *r)
 {
+#ifdef EMMALLOC_MEMVALIDATE
+  ASSERT_MALLOC_IS_ACQUIRED();
+#endif
   return region_ceiling_size(r) & FREE_REGION_FLAG;
 }
 
 static bool region_is_in_use(Region *r)
 {
+#ifdef EMMALLOC_MEMVALIDATE
+  ASSERT_MALLOC_IS_ACQUIRED();
+#endif
   return r->size == region_ceiling_size(r);
 }
 
 static size_t size_of_region_from_ceiling(Region *r)
 {
+#ifdef EMMALLOC_MEMVALIDATE
+  ASSERT_MALLOC_IS_ACQUIRED();
+#endif
   size_t size = region_ceiling_size(r);
   return DECODE_CEILING_SIZE(size);
 }
 
 static bool debug_region_is_consistent(Region *r)
 {
+#ifdef EMMALLOC_MEMVALIDATE
+  ASSERT_MALLOC_IS_ACQUIRED();
+#endif
   assert(r);
   size_t sizeAtBottom = r->size;
   size_t sizeAtCeiling = size_of_region_from_ceiling(r);
@@ -284,16 +311,25 @@ static bool debug_region_is_consistent(Region *r)
 
 static uint8_t *region_payload_start_ptr(Region *region)
 {
+#ifdef EMMALLOC_MEMVALIDATE
+  ASSERT_MALLOC_IS_ACQUIRED();
+#endif
   return (uint8_t*)region + sizeof(size_t);
 }
 
 static uint8_t *region_payload_end_ptr(Region *region)
 {
+#ifdef EMMALLOC_MEMVALIDATE
+  ASSERT_MALLOC_IS_ACQUIRED();
+#endif
   return (uint8_t*)region + region->size - sizeof(size_t);
 }
 
 static void create_used_region(void *ptr, size_t size)
 {
+#ifdef EMMALLOC_MEMVALIDATE
+  ASSERT_MALLOC_IS_ACQUIRED();
+#endif
   assert(ptr);
   assert(HAS_ALIGNMENT(ptr, sizeof(size_t)));
   assert(HAS_ALIGNMENT(size, sizeof(size_t)));
@@ -304,6 +340,9 @@ static void create_used_region(void *ptr, size_t size)
 
 static void create_free_region(void *ptr, size_t size)
 {
+#ifdef EMMALLOC_MEMVALIDATE
+  ASSERT_MALLOC_IS_ACQUIRED();
+#endif
   assert(ptr);
   assert(HAS_ALIGNMENT(ptr, sizeof(size_t)));
   assert(HAS_ALIGNMENT(size, sizeof(size_t)));
@@ -315,6 +354,9 @@ static void create_free_region(void *ptr, size_t size)
 
 static void prepend_to_free_list(Region *region, Region *prependTo)
 {
+#ifdef EMMALLOC_MEMVALIDATE
+  ASSERT_MALLOC_IS_ACQUIRED();
+#endif
   assert(region);
   assert(prependTo);
   // N.b. the region we are prepending to is always the sentinel node,
@@ -330,6 +372,9 @@ static void prepend_to_free_list(Region *region, Region *prependTo)
 
 static void unlink_from_free_list(Region *region)
 {
+#ifdef EMMALLOC_MEMVALIDATE
+  ASSERT_MALLOC_IS_ACQUIRED();
+#endif
   assert(region);
   assert(region_is_free((Region*)region));
   assert(region->prev);
@@ -340,6 +385,9 @@ static void unlink_from_free_list(Region *region)
 
 static void link_to_free_list(Region *freeRegion)
 {
+#ifdef EMMALLOC_MEMVALIDATE
+  ASSERT_MALLOC_IS_ACQUIRED();
+#endif
   assert(freeRegion);
   assert(freeRegion->size >= sizeof(Region));
   int bucketIndex = compute_free_list_bucket(freeRegion->size-REGION_HEADER_SIZE);
@@ -443,9 +491,33 @@ static int validate_memory_regions()
     Region *fr = freeRegionBuckets[i].next;
     while(fr != &freeRegionBuckets[i])
     {
-      if (!debug_region_is_consistent(fr) || !region_is_free(fr) || fr->prev != prev || fr->next == fr || fr->prev == fr)
+      if (!debug_region_is_consistent(fr))
       {
-        MAIN_THREAD_ASYNC_EM_ASM(console.log('In bucket '+$0+', free region 0x'+($1>>>0).toString(16)+', size: ' + ($2>>>0) + ' (size at ceiling: '+($3>>>0)+'), prev: 0x' + ($4>>>0).toString(16) + ', next: 0x' + ($5>>>0).toString(16) + ' is corrupt!'),
+        MAIN_THREAD_ASYNC_EM_ASM(console.log('In bucket '+$0+', free region 0x'+($1>>>0).toString(16)+', size: ' + ($2>>>0) + ' (size at ceiling: '+($3>>>0)+'), prev: 0x' + ($4>>>0).toString(16) + ', next: 0x' + ($5>>>0).toString(16) + ' is corrupt! The region sizes are inconsistent'),
+          i, fr, fr->size, size_of_region_from_ceiling(fr), fr->prev, fr->next);
+        return 1;
+      }
+      if (!region_is_free(fr))
+      {
+        MAIN_THREAD_ASYNC_EM_ASM(console.log('In bucket '+$0+', free region 0x'+($1>>>0).toString(16)+', size: ' + ($2>>>0) + ' (size at ceiling: '+($3>>>0)+'), prev: 0x' + ($4>>>0).toString(16) + ', next: 0x' + ($5>>>0).toString(16) + ' is corrupt! It should represent a free region, but is not.'),
+          i, fr, fr->size, size_of_region_from_ceiling(fr), fr->prev, fr->next);
+        return 1;
+      }
+      if (fr->prev != prev)
+      {
+        MAIN_THREAD_ASYNC_EM_ASM(console.log('In bucket '+$0+', free region 0x'+($1>>>0).toString(16)+', size: ' + ($2>>>0) + ' (size at ceiling: '+($3>>>0)+'), prev: 0x' + ($4>>>0).toString(16) + ', next: 0x' + ($5>>>0).toString(16) + ' is corrupt! The prev pointer does not point to the previous block, which was 0x' + ($6>>>0).toString(16)),
+          i, fr, fr->size, size_of_region_from_ceiling(fr), fr->prev, fr->next, prev);
+        return 1;
+      }
+      if (fr->next == fr)
+      {
+        MAIN_THREAD_ASYNC_EM_ASM(console.log('In bucket '+$0+', free region 0x'+($1>>>0).toString(16)+', size: ' + ($2>>>0) + ' (size at ceiling: '+($3>>>0)+'), prev: 0x' + ($4>>>0).toString(16) + ', next: 0x' + ($5>>>0).toString(16) + ' is corrupt! The next pointer points to itself!'),
+          i, fr, fr->size, size_of_region_from_ceiling(fr), fr->prev, fr->next);
+        return 1;
+      }
+      if (fr->prev == fr)
+      {
+        MAIN_THREAD_ASYNC_EM_ASM(console.log('In bucket '+$0+', free region 0x'+($1>>>0).toString(16)+', size: ' + ($2>>>0) + ' (size at ceiling: '+($3>>>0)+'), prev: 0x' + ($4>>>0).toString(16) + ', next: 0x' + ($5>>>0).toString(16) + ' is corrupt! The prev pointer points to itself!'),
           i, fr, fr->size, size_of_region_from_ceiling(fr), fr->prev, fr->next);
         return 1;
       }
@@ -469,6 +541,7 @@ static bool claim_more_memory(size_t numBytes)
 #ifdef EMMALLOC_VERBOSE
   MAIN_THREAD_ASYNC_EM_ASM(console.log('claim_more_memory(numBytes='+($0>>>0)+ ')'), numBytes);
 #endif
+  ASSERT_MALLOC_IS_ACQUIRED();
 
 #ifdef EMMALLOC_MEMVALIDATE
   validate_memory_regions();
@@ -555,8 +628,19 @@ static void initialize_emmalloc_heap()
   MAIN_THREAD_ASYNC_EM_ASM(console.log('initialize_emmalloc_heap()'));
 #endif
 
+#ifndef NDEBUG
+  // Even though this is a singlethreaded portion and we don't need critical section locks
+  // here, assertion checks in claim_more_memory()->validate_memory_regions() call verify
+  // that we do have it, so in MEMVALIDATE enabled build modes, make sure we have the lock.
+  MALLOC_ACQUIRE();
+#endif
+
   // Start with a tiny dynamic region.
   claim_more_memory(3*sizeof(Region));
+
+#ifndef NDEBUG
+  MALLOC_RELEASE();
+#endif
 }
 
 void emmalloc_blank_slate_from_orbit()
@@ -564,8 +648,9 @@ void emmalloc_blank_slate_from_orbit()
   MALLOC_ACQUIRE();
   listOfAllRegions = NULL;
   freeRegionBucketsUsed = 0;
-  initialize_emmalloc_heap();
   MALLOC_RELEASE();
+
+  initialize_emmalloc_heap();
 }
 
 static void *attempt_allocate(Region *freeRegion, size_t alignment, size_t size)
@@ -663,11 +748,10 @@ static size_t validate_alloc_size(size_t size)
 
 static void *allocate_memory(size_t alignment, size_t size)
 {
-  ASSERT_MALLOC_IS_ACQUIRED();
-
 #ifdef EMMALLOC_VERBOSE
   MAIN_THREAD_ASYNC_EM_ASM(console.log('allocate_memory(align=' + $0 + ', size=' + ($1>>>0) + ' bytes)'), alignment, size);
 #endif
+  ASSERT_MALLOC_IS_ACQUIRED();
 
 #ifdef EMMALLOC_MEMVALIDATE
   validate_memory_regions();
@@ -843,13 +927,14 @@ size_t emmalloc_usable_size(void *ptr)
   Region *region = (Region*)(regionStartPtr);
   assert(HAS_ALIGNMENT(region, sizeof(size_t)));
 
-  MALLOC_ACQUIRE();
-
   size_t size = region->size;
   assert(size >= sizeof(Region));
-  assert(region_is_in_use(region));
 
+#ifndef NDEBUG
+  MALLOC_ACQUIRE(); // region_is_in_use() needs MT lock
+  assert(region_is_in_use(region));
   MALLOC_RELEASE();
+#endif
 
   return size - REGION_HEADER_SIZE;
 }
