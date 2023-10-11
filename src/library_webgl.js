@@ -2076,7 +2076,8 @@ var LibraryGL = {
       // maps integer locations back to uniform name strings, so that we can lazily fetch uniform array locations
       program.uniformArrayNamesById = {};
 
-      for (i = 0; i < GLctx.getProgramParameter(program, 0x8B86/*GL_ACTIVE_UNIFORMS*/); ++i) {
+      var numActiveUniforms = GLctx.getProgramParameter(program, 0x8B86/*GL_ACTIVE_UNIFORMS*/);
+      for (i = 0; i < numActiveUniforms; ++i) {
         var u = GLctx.getActiveUniform(program, i);
         var nm = u.name;
         var sz = u.size;
@@ -2384,8 +2385,9 @@ var LibraryGL = {
 #if GL_POOL_TEMP_BUFFERS
     if (count <= {{{ GL_POOL_TEMP_BUFFERS_SIZE / 2 }}}) {
       // avoid allocation when uploading few enough uniforms
-      var view = miniTempWebGLIntBuffers[2*count-1];
-      for (var i = 0; i < 2*count; i += 2) {
+      count <<= 1;
+      var view = miniTempWebGLIntBuffers[count-1];
+      for (var i = 0; i < count; i += 2) {
         view[i] = {{{ makeGetValue('value', '4*i', 'i32') }}};
         view[i+1] = {{{ makeGetValue('value', '4*i+4', 'i32') }}};
       }
@@ -2429,8 +2431,9 @@ var LibraryGL = {
 #if GL_POOL_TEMP_BUFFERS
     if (count <= {{{ GL_POOL_TEMP_BUFFERS_SIZE / 3 }}}) {
       // avoid allocation when uploading few enough uniforms
-      var view = miniTempWebGLIntBuffers[3*count-1];
-      for (var i = 0; i < 3*count; i += 3) {
+      count *= 3;
+      var view = miniTempWebGLIntBuffers[count-1];
+      for (var i = 0; i < count; i += 3) {
         view[i] = {{{ makeGetValue('value', '4*i', 'i32') }}};
         view[i+1] = {{{ makeGetValue('value', '4*i+4', 'i32') }}};
         view[i+2] = {{{ makeGetValue('value', '4*i+8', 'i32') }}};
@@ -2475,8 +2478,9 @@ var LibraryGL = {
 #if GL_POOL_TEMP_BUFFERS
     if (count <= {{{ GL_POOL_TEMP_BUFFERS_SIZE / 4 }}}) {
       // avoid allocation when uploading few enough uniforms
-      var view = miniTempWebGLIntBuffers[4*count-1];
-      for (var i = 0; i < 4*count; i += 4) {
+      count <<= 2;
+      var view = miniTempWebGLIntBuffers[count-1];
+      for (var i = 0; i < count; i += 4) {
         view[i] = {{{ makeGetValue('value', '4*i', 'i32') }}};
         view[i+1] = {{{ makeGetValue('value', '4*i+4', 'i32') }}};
         view[i+2] = {{{ makeGetValue('value', '4*i+8', 'i32') }}};
@@ -2566,8 +2570,9 @@ var LibraryGL = {
 #if GL_POOL_TEMP_BUFFERS
     if (count <= {{{ GL_POOL_TEMP_BUFFERS_SIZE / 2 }}}) {
       // avoid allocation when uploading few enough uniforms
-      var view = miniTempWebGLFloatBuffers[2*count-1];
-      for (var i = 0; i < 2*count; i += 2) {
+      count <<= 1;
+      var view = miniTempWebGLFloatBuffers[count-1];
+      for (var i = 0; i < count; i += 2) {
         view[i] = {{{ makeGetValue('value', '4*i', 'float') }}};
         view[i+1] = {{{ makeGetValue('value', '4*i+4', 'float') }}};
       }
@@ -2611,8 +2616,9 @@ var LibraryGL = {
 #if GL_POOL_TEMP_BUFFERS
     if (count <= {{{ GL_POOL_TEMP_BUFFERS_SIZE / 3 }}}) {
       // avoid allocation when uploading few enough uniforms
-      var view = miniTempWebGLFloatBuffers[3*count-1];
-      for (var i = 0; i < 3*count; i += 3) {
+      count *= 3;
+      var view = miniTempWebGLFloatBuffers[count-1];
+      for (var i = 0; i < count; i += 3) {
         view[i] = {{{ makeGetValue('value', '4*i', 'float') }}};
         view[i+1] = {{{ makeGetValue('value', '4*i+4', 'float') }}};
         view[i+2] = {{{ makeGetValue('value', '4*i+8', 'float') }}};
@@ -2661,7 +2667,8 @@ var LibraryGL = {
       // hoist the heap out of the loop for size and for pthreads+growth.
       var heap = HEAPF32;
       value >>= 2;
-      for (var i = 0; i < 4 * count; i += 4) {
+      count <<= 2;
+      for (var i = 0; i < count; i += 4) {
         var dst = value + i;
         view[i] = heap[dst];
         view[i + 1] = heap[dst + 1];
@@ -2708,8 +2715,9 @@ var LibraryGL = {
 #if GL_POOL_TEMP_BUFFERS
     if (count <= {{{ GL_POOL_TEMP_BUFFERS_SIZE / 4 }}}) {
       // avoid allocation when uploading few enough uniforms
-      var view = miniTempWebGLFloatBuffers[4*count-1];
-      for (var i = 0; i < 4*count; i += 4) {
+      count <<= 2;
+      var view = miniTempWebGLFloatBuffers[count-1];
+      for (var i = 0; i < count; i += 4) {
         view[i] = {{{ makeGetValue('value', '4*i', 'float') }}};
         view[i+1] = {{{ makeGetValue('value', '4*i+4', 'float') }}};
         view[i+2] = {{{ makeGetValue('value', '4*i+8', 'float') }}};
@@ -2755,8 +2763,9 @@ var LibraryGL = {
 #if GL_POOL_TEMP_BUFFERS
     if (count <= {{{ GL_POOL_TEMP_BUFFERS_SIZE / 9 }}}) {
       // avoid allocation when uploading few enough uniforms
-      var view = miniTempWebGLFloatBuffers[9*count-1];
-      for (var i = 0; i < 9*count; i += 9) {
+      count *= 9;
+      var view = miniTempWebGLFloatBuffers[count-1];
+      for (var i = 0; i < count; i += 9) {
         view[i] = {{{ makeGetValue('value', '4*i', 'float') }}};
         view[i+1] = {{{ makeGetValue('value', '4*i+4', 'float') }}};
         view[i+2] = {{{ makeGetValue('value', '4*i+8', 'float') }}};
@@ -2807,11 +2816,12 @@ var LibraryGL = {
 #if GL_POOL_TEMP_BUFFERS
     if (count <= {{{ GL_POOL_TEMP_BUFFERS_SIZE / 16 }}}) {
       // avoid allocation when uploading few enough uniforms
-      var view = miniTempWebGLFloatBuffers[16*count-1];
+      count <<= 4;
+      var view = miniTempWebGLFloatBuffers[count-1];
       // hoist the heap out of the loop for size and for pthreads+growth.
       var heap = HEAPF32;
       value >>= 2;
-      for (var i = 0; i < 16 * count; i += 16) {
+      for (var i = 0; i < count; i += 16) {
         var dst = value + i;
         view[i] = heap[dst];
         view[i + 1] = heap[dst + 1];
@@ -3257,21 +3267,24 @@ var LibraryGL = {
       {{{ makeSetValue('p', '0', 'log.length + 1', 'i32') }}};
     } else if (pname == 0x8B87 /* GL_ACTIVE_UNIFORM_MAX_LENGTH */) {
       if (!program.maxUniformLength) {
-        for (var i = 0; i < GLctx.getProgramParameter(program, 0x8B86/*GL_ACTIVE_UNIFORMS*/); ++i) {
+        var numActiveUniforms = GLctx.getProgramParameter(program, 0x8B86/*GL_ACTIVE_UNIFORMS*/);
+        for (var i = 0; i < numActiveUniforms; ++i) {
           program.maxUniformLength = Math.max(program.maxUniformLength, GLctx.getActiveUniform(program, i).name.length+1);
         }
       }
       {{{ makeSetValue('p', '0', 'program.maxUniformLength', 'i32') }}};
     } else if (pname == 0x8B8A /* GL_ACTIVE_ATTRIBUTE_MAX_LENGTH */) {
       if (!program.maxAttributeLength) {
-        for (var i = 0; i < GLctx.getProgramParameter(program, 0x8B89/*GL_ACTIVE_ATTRIBUTES*/); ++i) {
+        var numActiveAttributes = GLctx.getProgramParameter(program, 0x8B89/*GL_ACTIVE_ATTRIBUTES*/);
+        for (var i = 0; i < numActiveAttributes; ++i) {
           program.maxAttributeLength = Math.max(program.maxAttributeLength, GLctx.getActiveAttrib(program, i).name.length+1);
         }
       }
       {{{ makeSetValue('p', '0', 'program.maxAttributeLength', 'i32') }}};
     } else if (pname == 0x8A35 /* GL_ACTIVE_UNIFORM_BLOCK_MAX_NAME_LENGTH */) {
       if (!program.maxUniformBlockNameLength) {
-        for (var i = 0; i < GLctx.getProgramParameter(program, 0x8A36/*GL_ACTIVE_UNIFORM_BLOCKS*/); ++i) {
+        var numActiveUniformBlocks = GLctx.getProgramParameter(program, 0x8A36/*GL_ACTIVE_UNIFORM_BLOCKS*/);
+        for (var i = 0; i < numActiveUniformBlocks; ++i) {
           program.maxUniformBlockNameLength = Math.max(program.maxUniformBlockNameLength, GLctx.getActiveUniformBlockName(program, i).length+1);
         }
       }
