@@ -32,4 +32,5 @@ if [ -z "$PYTHON" ]; then
   exit 1
 fi
 
+export EM_LAUNCHER=1
 exec "$PYTHON" -E "$0.py" "$@"

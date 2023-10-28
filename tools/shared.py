@@ -761,6 +761,10 @@ def get_llvm_target():
 def init():
   set_version_globals()
   setup_temp_dirs()
+  if 'EM_LAUNCHER' not in os.environ:
+    actual = bat_suffix(os.path.basename(sys.argv[0]))
+    launcher = os.path.splitext(actual)[0]
+    diagnostics.warning('unsupported', f'python script (`{actual}`) was run directly rather than run via launcher.  Running via `{launcher}` is recommended')
 
 
 # ============================================================================

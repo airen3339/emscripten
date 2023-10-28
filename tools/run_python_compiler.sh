@@ -32,6 +32,7 @@ if [ -z "$PYTHON" ]; then
   exit 1
 fi
 
+export EM_LAUNCHER=1
 if [ -z "$_EMCC_CCACHE" ]; then
   exec "$PYTHON" -E "$0.py" "$@"
 else
