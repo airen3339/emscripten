@@ -4001,7 +4001,7 @@ def node_es6_imports():
 
   # Use static import declaration if we only target Node.js
   return '''
-import { createRequire } from 'module';
+import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 '''
 

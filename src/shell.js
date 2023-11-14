@@ -195,14 +195,14 @@ if (ENVIRONMENT_IS_NODE) {
   // builds, `-sENVIRONMENT=node` emits a static import declaration instead.
   // TODO: Swap all `require()`'s with `import()`'s?
 #if EXPORT_ES6 && ENVIRONMENT_MAY_BE_WEB
-  const { createRequire } = await import('module');
+  const { createRequire } = await import('node:module');
   /** @suppress{duplicate} */
   var require = createRequire(import.meta.url);
 #endif
   // These modules will usually be used on Node.js. Load them eagerly to avoid
   // the complexity of lazy-loading.
-  var fs = require('fs');
-  var nodePath = require('path');
+  var fs = require('node:fs');
+  var nodePath = require('node:path');
 
   if (ENVIRONMENT_IS_WORKER) {
     scriptDirectory = nodePath.dirname(scriptDirectory) + '/';
@@ -211,7 +211,7 @@ if (ENVIRONMENT_IS_NODE) {
     // EXPORT_ES6 + ENVIRONMENT_IS_NODE always requires use of import.meta.url,
     // since there's no way getting the current absolute path of the module when
     // support for that is not available.
-    scriptDirectory = require('url').fileURLToPath(new URL('./', import.meta.url)); // includes trailing slash
+    scriptDirectory = require('node:url').fileURLToPath(new URL('./', import.meta.url)); // includes trailing slash
 #else
     scriptDirectory = __dirname + '/';
 #endif
@@ -267,7 +267,7 @@ if (ENVIRONMENT_IS_NODE) {
 #if PTHREADS || WASM_WORKERS
   let nodeWorkerThreads;
   try {
-    nodeWorkerThreads = require('worker_threads');
+    nodeWorkerThreads = require('node:worker_threads');
   } catch (e) {
     console.error('The "worker_threads" module is not supported in this node.js build - perhaps a newer version is needed?');
     throw e;
@@ -422,7 +422,7 @@ if (ENVIRONMENT_IS_NODE) {
   // Polyfill the performance object, which emscripten pthreads support
   // depends on for good timing.
   if (typeof performance == 'undefined') {
-    global.performance = require('perf_hooks').performance;
+    global.performance = require('node:perf_hooks').performance;
   }
 }
 
