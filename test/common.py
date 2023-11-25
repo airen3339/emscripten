@@ -31,10 +31,11 @@ import unittest
 
 import clang_native
 import jsrun
+import line_endings
 from tools.shared import EMCC, EMXX, DEBUG, EMCONFIGURE, EMCMAKE
 from tools.shared import get_canonical_temp_dir, path_from_root
 from tools.utils import MACOS, WINDOWS, read_file, read_binary, write_binary, exit_with_error
-from tools import shared, line_endings, building, config, utils
+from tools import shared, building, config, utils
 
 logger = logging.getLogger('common')
 

@@ -58,6 +58,20 @@ def chdir(dir):
     os.chdir(orig_cwd)
 
 
+def convert_line_endings(text, from_eol, to_eol):
+  if from_eol == to_eol:
+    return text
+  return text.replace(from_eol, to_eol)
+
+
+def convert_line_endings_in_file(filename, to_eol):
+  if to_eol == os.linesep:
+    return # No conversion needed
+
+  text = read_file(filename)
+  write_file(filename, text, line_endings=to_eol)
+
+
 def read_file(file_path):
   """Read from a file opened in text mode"""
   with open(file_path, encoding='utf-8') as fh:
@@ -70,8 +84,11 @@ def read_binary(file_path):
     return fh.read()
 
 
-def write_file(file_path, text):
+def write_file(file_path, text, line_endings=None):
   """Write to a file opened in text mode"""
+  if line_endings and line_endings != os.linesep:
+    text = convert_line_endings(text, '\n', line_endings)
+    write_binary(file_path, text.encode('utf-8'))
   with open(file_path, 'w', encoding='utf-8') as fh:
     fh.write(text)
 

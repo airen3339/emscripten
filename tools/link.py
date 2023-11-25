@@ -40,7 +40,6 @@ from .shared import unsuffixed, unsuffixed_basename, get_file_suffix
 from .settings import settings, default_setting, user_settings
 from .minimal_runtime_shell import generate_minimal_runtime_html
 
-import tools.line_endings
 import emscripten
 
 logger = logging.getLogger('link')
@@ -2067,7 +2066,7 @@ def phase_final_emitting(options, state, target, wasm_target, memfile):
     generate_html(target, options, js_target, target_basename,
                   wasm_target, memfile)
   elif settings.PROXY_TO_WORKER:
-    generate_worker_js(target, js_target, target_basename)
+    generate_worker_js(target, options, js_target, target_basename)
 
   if embed_memfile(options) and memfile:
     delete_file(memfile)
@@ -2077,7 +2076,7 @@ def phase_final_emitting(options, state, target, wasm_target, memfile):
     do_split_module(wasm_target, options)
 
   if not settings.SINGLE_FILE:
-    tools.line_endings.convert_line_endings_in_file(js_target, os.linesep, options.output_eol)
+    utils.convert_line_endings_in_file(js_target, options.output_eol)
 
   if options.executable:
     make_js_executable(js_target)
@@ -2575,10 +2574,10 @@ def generate_html(target, options, js_target, target_basename,
   if settings.MINIFY_HTML and (settings.OPT_LEVEL >= 1 or settings.SHRINK_LEVEL >= 1):
     minify_html(target)
 
-  tools.line_endings.convert_line_endings_in_file(target, os.linesep, options.output_eol)
+  utils.convert_line_endings_in_file(target, options.output_eol)
 
 
-def generate_worker_js(target, js_target, target_basename):
+def generate_worker_js(target, options, js_target, target_basename):
   if settings.SINGLE_FILE:
     # compiler output is embedded as base64
     proxy_worker_filename = get_subresource_location(js_target)
@@ -2589,7 +2588,7 @@ def generate_worker_js(target, js_target, target_basename):
     proxy_worker_filename = (settings.PROXY_TO_WORKER_FILENAME or worker_target_basename) + '.js'
 
   target_contents = worker_js_script(proxy_worker_filename)
-  write_file(target, target_contents)
+  utils.write_file(target, target_contents, options.output_eol)
 
 
 def worker_js_script(proxy_worker_filename):

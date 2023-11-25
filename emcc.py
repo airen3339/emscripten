@@ -84,7 +84,7 @@ LINK_ONLY_FLAGS = {
     '--bind', '--closure', '--cpuprofiler', '--embed-file',
     '--emit-symbol-map', '--emrun', '--exclude-file', '--extern-post-js',
     '--extern-pre-js', '--ignore-dynamic-linking', '--js-library',
-    '--js-transform', '--memory-init-file', '--oformat', '--output_eol',
+    '--js-transform', '--memory-init-file', '--oformat', '--output_eol', '--output-eol',
     '--post-js', '--pre-js', '--preload-file', '--profiling-funcs',
     '--proxy-to-worker', '--shell-file', '--source-map-base',
     '--threadprofiler', '--use-preload-plugins'
@@ -1401,14 +1401,14 @@ def parse_args(newargs):
         options.default_object_extension = '.' + options.default_object_extension
     elif arg.startswith('-fsanitize=cfi'):
       exit_with_error('emscripten does not currently support -fsanitize=cfi')
-    elif check_arg('--output_eol'):
+    elif check_arg('--output_eol') or check_arg('--output-eol'):
       style = consume_arg()
       if style.lower() == 'windows':
         options.output_eol = '\r\n'
       elif style.lower() == 'linux':
         options.output_eol = '\n'
       else:
-        exit_with_error(f'Invalid value "{style}" to --output_eol!')
+        exit_with_error(f'invalid value for --output-eol: `{style}`')
     # Record PTHREADS setting because it controls whether --shared-memory is passed to lld
     elif arg == '-pthread':
       settings.PTHREADS = 1
