@@ -25,6 +25,8 @@ See docs/process.md for more on how version tagging works.
   ports of native GL renderers from later accidentally attempting to activate
   "dormant" features if web browser implementations gain new WebGL extensions in
   the future, which `*glGetProcAddress()` is not able to support. (#20802)
+- Added support for WebGL extensions EXT_clip_control, EXT_depth_clamp,
+  EXT_polygon_offset_clamp and WEBGL_polygon_mode (#20841)
 
 3.1.50 - 11/29/23
 -----------------
