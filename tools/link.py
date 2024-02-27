@@ -193,14 +193,6 @@ def setup_environment_settings():
     exit_with_error('when building with multithreading enabled and a "-sENVIRONMENT=" directive is specified, it must include "worker" as a target! (Try e.g. -sENVIRONMENT=web,worker)')
 
 
-def embed_memfile(options):
-  return (settings.SINGLE_FILE or
-          (settings.WASM2JS and not options.memory_init_file and
-           (not settings.MAIN_MODULE and
-            not settings.SIDE_MODULE and
-            not settings.GENERATE_SOURCE_MAP)))
-
-
 def generate_js_sym_info():
   # Runs the js compiler to generate a list of all symbols available in the JS
   # libraries.  This must be done separately for each linker invocation since the
@@ -1808,6 +1800,15 @@ def phase_linker_setup(options, state, newargs):
   if settings.USE_CLOSURE_COMPILER or not settings.MINIFY_WHITESPACE:
     settings.MAYBE_CLOSURE_COMPILER = 1
 
+  if (settings.SINGLE_FILE or (settings.WASM2JS and not options.memory_init_file and
+           (not settings.MAIN_MODULE and
+            not settings.SIDE_MODULE and
+            not settings.GENERATE_SOURCE_MAP))):
+    settings.SUPPORT_BASE64_EMBEDDING = 1
+    settings.DEFAULT_LIBRARY_FUNCS_TO_INCLUDE.append('$base64Decode')
+    if not settings.MINIMAL_RUNTIME:
+      settings.DEFAULT_LIBRARY_FUNCS_TO_INCLUDE.append('$tryParseAsDataURI')
+
   return target, wasm_target
 
 
@@ -1881,8 +1882,6 @@ def phase_post_link(options, state, in_wasm, wasm_target, target, js_syms):
 def phase_emscript(options, in_wasm, wasm_target, js_syms):
   # Emscripten
   logger.debug('emscript')
-
-  settings.SUPPORT_BASE64_EMBEDDING = embed_memfile(options)
 
   if shared.SKIP_SUBPROCS:
     return
@@ -2092,7 +2091,7 @@ def phase_final_emitting(options, state, target, wasm_target, memfile):
   elif settings.PROXY_TO_WORKER:
     generate_worker_js(target, js_target, target_basename)
 
-  if embed_memfile(options) and memfile:
+  if memfile and (settings.SINGLE_FILE or (settings.WASM2JS and not options.memory_init_file)):
     delete_file(memfile)
 
   if settings.SPLIT_MODULE:
@@ -2458,7 +2457,7 @@ def generate_traditional_runtime_html(target, options, js_target, target_basenam
   }
 '''
     # add required helper functions such as tryParseAsDataURI
-    for filename in ('arrayUtils.js', 'base64Utils.js', 'URIUtils.js'):
+    for filename in ('arrayUtils.js', 'URIUtils.js'):
       content = shared.read_and_preprocess(utils.path_from_root('src', filename))
       script.inline = content + script.inline
 

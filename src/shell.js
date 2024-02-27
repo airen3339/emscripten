@@ -61,6 +61,10 @@ var Module = typeof {{{ EXPORT_NAME }}} != 'undefined' ? {{{ EXPORT_NAME }}} : {
 // See https://caniuse.com/mdn-javascript_builtins_bigint64array
 #include "polyfill/bigint64array.js"
 #endif
+
+#if SUPPORT_BASE64_EMBEDDING && (ENVIRONMENT_MAY_BE_SHELL || (ENVIRONMENT_MAY_BE_NODE && MIN_NODE_VERSION < 160000))
+#include "polyfill/atob.js"
+#endif
 #endif // POLYFILL
 
 #if MODULARIZE

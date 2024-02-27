@@ -89,6 +89,10 @@ function initRuntime(wasmExports) {
 
 // Initialize wasm (asynchronous)
 
+#if SINGLE_FILE && WASM == 1 && !WASM2JS
+Module['wasm'] = base64Decode('<<< WASM_BINARY_DATA >>>');
+#endif
+
 var imports = {
 #if MINIFY_WASM_IMPORTED_MODULES
   'a': wasmImports,

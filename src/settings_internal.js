@@ -148,7 +148,7 @@ var SOURCE_MAP_BASE = '';
 // this setting will always be true.
 var MEM_INIT_IN_WASM = true;
 
-// If set to 1, src/base64Utils.js will be included in the bundle.
+// If set to 1 then base64 decoding functions will be included in the bundle.
 // This is set internally when needed (SINGLE_FILE)
 var SUPPORT_BASE64_EMBEDDING = false;
 
