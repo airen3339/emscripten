@@ -1066,8 +1066,7 @@ var LibraryPThread = {
 
   $establishStackSpace__internal: true,
   $establishStackSpace__deps: ['stackRestore'],
-  $establishStackSpace: () => {
-    var pthread_ptr = _pthread_self();
+  $establishStackSpace: (pthread_ptr) => {
     var stackHigh = {{{ makeGetValue('pthread_ptr', C_STRUCTS.pthread.stack, '*') }}};
     var stackSize = {{{ makeGetValue('pthread_ptr', C_STRUCTS.pthread.stack_size, '*') }}};
     var stackLow = stackHigh - stackSize;

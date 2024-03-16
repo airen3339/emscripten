@@ -228,20 +228,24 @@ function handleMessage(e) {
 #endif
 #endif // MODULARIZE && EXPORT_ES6
     } else if (e.data.cmd === 'run') {
+#if ASSERTIONS
+      assert(e.data.pthread_ptr);
+#endif
+      // Call inside JS module to set up the stack frame for this pthread in JS module scope.
+      // This needs to be the first thing that we do here, as we cannot call to any C/C++ functions until
+      // the thread stack is initialized.
+      Module['establishStackSpace'](e.data.pthread_ptr);
+
       // Pass the thread address to wasm to store it for fast access.
       Module['__emscripten_thread_init'](e.data.pthread_ptr, /*is_main=*/0, /*is_runtime=*/0, /*can_block=*/1);
+
+      Module['PThread'].receiveObjectTransfer(e.data);
+      Module['PThread'].threadInitTLS();
 
       // Await mailbox notifications with `Atomics.waitAsync` so we can start
       // using the fast `Atomics.notify` notification path.
       Module['__emscripten_thread_mailbox_await'](e.data.pthread_ptr);
 
-#if ASSERTIONS
-      assert(e.data.pthread_ptr);
-#endif
-      // Also call inside JS module to set up the stack frame for this pthread in JS module scope
-      Module['establishStackSpace']();
-      Module['PThread'].receiveObjectTransfer(e.data);
-      Module['PThread'].threadInitTLS();
 
       if (!initializedJS) {
 #if EMBIND
