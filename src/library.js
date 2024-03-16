@@ -3749,7 +3749,7 @@ function wrapSyscallFunction(x, library, isWasi) {
   if (!WASMFS && t.includes('SYSCALLS')) {
     library[x + '__deps'].push('$SYSCALLS');
   }
-#if PTHREADS
+#if SHARED_MEMORY
   // Most syscalls need to happen on the main JS thread (e.g. because the
   // filesystem is in JS and on that thread). Proxy synchronously to there.
   // There are some exceptions, syscalls that we know are ok to just run in
@@ -3759,6 +3759,10 @@ function wrapSyscallFunction(x, library, isWasi) {
   // instead of synchronously, and marked with
   //  __proxy: 'async'
   // (but essentially all syscalls do have return values).
+  //
+  // Note that we add this even in the WASM_WORKERS case since we want calls
+  // to these functions from wasm workers to assert in debug builds (since wasm
+  // workers lack proxying support).
   if (library[x + '__proxy'] === undefined) {
     library[x + '__proxy'] = 'sync';
   }
