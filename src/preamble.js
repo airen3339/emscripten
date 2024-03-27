@@ -612,7 +612,15 @@ if (Module['locateFile']) {
 }
 #endif
 
+#if SINGLE_FILE && SINGLE_FILE_BINARY_ENCODE
+#include "binaryDecode.js"
+wasmBinaryFile = binaryDecode(wasmBinaryFile);
+#endif
+
 function getBinarySync(file) {
+#if SINGLE_FILE && SINGLE_FILE_BINARY_ENCODE
+  return file;
+#else
   if (file == wasmBinaryFile && wasmBinary) {
     return new Uint8Array(wasmBinary);
   }
@@ -629,6 +637,7 @@ function getBinarySync(file) {
   throw 'both async and sync fetching of the wasm failed';
 #else
   throw 'sync fetching of the wasm failed: you can preload it to Module["wasmBinary"] manually, or emcc.py will do that for you when generating HTML (but not JS)';
+#endif
 #endif
 }
 
