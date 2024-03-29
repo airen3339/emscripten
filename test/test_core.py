@@ -2656,6 +2656,7 @@ The current type of b is: 9
     self.set_setting('EXIT_RUNTIME')
     self.do_core_test('test_strptime_reentrant.c')
 
+  @crossplatform
   def test_strftime(self):
     self.do_core_test('test_strftime.c')
 
@@ -7002,7 +7003,14 @@ void* operator new(size_t size) {
 
     for which, extra_args in cases:
       print(str(args) + ' ' + which)
-      self.do_core_test('dyncall_specific.c', emcc_args=['-D' + which] + list(args) + extra_args)
+      self.do_core_test('test_dyncall_specific.c', emcc_args=['-D' + which] + list(args) + extra_args)
+
+  @parameterized({
+    '': ([],),
+    'legacy': (['-sDYNCALLS'],),
+  })
+  def test_dyncall_pointers(self, args):
+    self.do_core_test('test_dyncall_pointers.c', emcc_args=args)
 
   @also_with_wasm_bigint
   def test_getValue_setValue(self):
@@ -7579,9 +7587,12 @@ void* operator new(size_t size) {
     self.emcc_args += ['-lembind', '-fno-rtti', '-DEMSCRIPTEN_HAS_UNBOUND_TYPE_NAMES=0']
     self.do_runf('main.cpp', '418\ndotest returned: 42\n')
 
-  def test_embind_polymorphic_class_no_rtti(self):
-    self.emcc_args += ['-lembind', '-fno-rtti', '-DEMSCRIPTEN_HAS_UNBOUND_TYPE_NAMES=0']
-    self.do_core_test('test_embind_polymorphic_class_no_rtti.cpp')
+  @parameterized({
+    '': ([],),
+    'no_rtti': (['-fno-rtti', '-DEMSCRIPTEN_HAS_UNBOUND_TYPE_NAMES=0'],),
+  })
+  def test_embind_polymorphic_class(self, args):
+    self.do_core_test('test_embind_polymorphic_class_no_rtti.cpp', emcc_args=args + ['-lembind'])
 
   def test_embind_no_rtti_followed_by_rtti(self):
     src = r'''

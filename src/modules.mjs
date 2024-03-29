@@ -28,6 +28,8 @@ export const librarySymbols = [];
 
 export const LibraryManager = {
   library: {},
+  // The JS and JS docs of each library definition indexed my mangled name.
+  libraryDefinitions: {},
   structs: {},
   loaded: false,
   libraries: [],
@@ -430,10 +432,6 @@ function exportRuntime() {
     'HEAP64',
     'HEAPU64',
   ];
-
-  // These are actually native wasm functions these days but we allow exporting
-  // them via EXPORTED_RUNTIME_METHODS for backwards compat.
-  runtimeElements = runtimeElements.concat(WASM_SYSTEM_EXPORTS);
 
   if (PTHREADS && ALLOW_MEMORY_GROWTH) {
     runtimeElements = runtimeElements.concat([

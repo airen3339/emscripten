@@ -15,7 +15,6 @@ import re
 import shlex
 import stat
 import shutil
-import sys
 import time
 from subprocess import PIPE
 from urllib.parse import quote
@@ -454,7 +453,7 @@ def make_js_executable(script):
 
 
 def do_split_module(wasm_file, options):
-  os.rename(wasm_file, wasm_file + '.orig')
+  os.replace(wasm_file, wasm_file + '.orig')
   args = ['--instrument']
   if options.requested_debug:
     # Tell wasm-split to preserve function names.
@@ -664,7 +663,7 @@ def check_browser_versions():
 @ToolchainProfiler.profile_block('linker_setup')
 def phase_linker_setup(options, state, newargs):
   system_libpath = '-L' + str(cache.get_lib_dir(absolute=True))
-  state.add_link_flag(sys.maxsize, system_libpath)
+  state.append_link_flag(system_libpath)
 
   # We used to do this check during on startup during `check_sanity`, but
   # we now only do it when linking, in order to reduce the overhead when
@@ -1193,8 +1192,8 @@ def phase_linker_setup(options, state, newargs):
   if not settings.WASM2JS:
     settings.POLYFILL_OLD_MATH_FUNCTIONS = 0
 
-  if settings.STB_IMAGE and final_suffix in EXECUTABLE_ENDINGS:
-    state.forced_stdlibs.append('libstb_image')
+  if settings.STB_IMAGE:
+    state.append_link_flag('-lstb_image')
     settings.EXPORTED_FUNCTIONS += ['_stbi_load', '_stbi_load_from_memory', '_stbi_image_free']
 
   if settings.USE_WEBGL2:
@@ -1226,7 +1225,9 @@ def phase_linker_setup(options, state, newargs):
       # implements can remain unimplemented, so it won't be linked in
       # automatically)
       # TODO: find a better way to do this
-      state.forced_stdlibs.append('libwasmfs_noderawfs')
+      state.append_link_flag('--whole-archive')
+      state.append_link_flag('-lwasmfs_noderawfs')
+      state.append_link_flag('--no-whole-archive')
     settings.FILESYSTEM = 1
     settings.SYSCALLS_REQUIRE_FILESYSTEM = 0
     settings.JS_LIBRARIES.append((0, 'library_wasmfs.js'))
@@ -1281,11 +1282,8 @@ def phase_linker_setup(options, state, newargs):
         '_wasmfs_get_cwd',
       ]
 
-  if settings.FETCH and final_suffix in EXECUTABLE_ENDINGS:
-    state.forced_stdlibs.append('libfetch')
-    settings.JS_LIBRARIES.append((0, 'library_fetch.js'))
-    if settings.PTHREADS:
-      settings.FETCH_WORKER_FILE = unsuffixed_basename(target) + '.fetch.js'
+  if settings.FETCH:
+    state.append_link_flag('-lfetch')
 
   if settings.DEMANGLE_SUPPORT:
     settings.REQUIRED_EXPORTS += ['__cxa_demangle', 'free']
@@ -1294,12 +1292,6 @@ def phase_linker_setup(options, state, newargs):
   if settings.FULL_ES3:
     settings.FULL_ES2 = 1
     settings.MAX_WEBGL_VERSION = max(2, settings.MAX_WEBGL_VERSION)
-
-  # WASM_SYSTEM_EXPORTS are actually native function but they are allowed to be exported
-  # via EXPORTED_RUNTIME_METHODS for backwards compat.
-  for sym in settings.WASM_SYSTEM_EXPORTS:
-    if sym in settings.EXPORTED_RUNTIME_METHODS:
-      settings.REQUIRED_EXPORTS.append(sym)
 
   if settings.MAIN_READS_PARAMS and not settings.STANDALONE_WASM:
     # callMain depends on _emscripten_stack_alloc
@@ -1347,8 +1339,11 @@ def phase_linker_setup(options, state, newargs):
     # overrides that.
     default_setting('ABORTING_MALLOC', 0)
 
-  if '-lembind' in [x for _, x in state.link_flags]:
+  if state.has_link_flag('-lembind'):
     settings.EMBIND = 1
+
+  if options.embind_emit_tsd or options.emit_tsd:
+    settings.EMIT_TSD = True
 
   if settings.PTHREADS:
     setup_pthreads(target)
@@ -1455,7 +1450,7 @@ def phase_linker_setup(options, state, newargs):
   # When not declaring wasm module exports in outer scope one by one, disable minifying
   # wasm module export names so that the names can be passed directly to the outer scope.
   # Also, if using library_exports.js API, disable minification so that the feature can work.
-  if not settings.DECLARE_ASM_MODULE_EXPORTS or '-lexports.js' in [x for _, x in state.link_flags]:
+  if not settings.DECLARE_ASM_MODULE_EXPORTS or state.has_link_flag('-lexports.js'):
     settings.MINIFY_WASM_EXPORT_NAMES = 0
 
   # Enable minification of wasm imports and exports when appropriate, if we
@@ -1517,7 +1512,7 @@ def phase_linker_setup(options, state, newargs):
     settings.MAYBE_WASM2JS = 1
 
   if settings.AUTODEBUG:
-    settings.REQUIRED_EXPORTS += ['setTempRet0']
+    settings.REQUIRED_EXPORTS += ['_emscripten_tempret_set']
 
   if settings.LEGALIZE_JS_FFI:
     settings.REQUIRED_EXPORTS += ['__get_temp_ret', '__set_temp_ret']
@@ -1658,7 +1653,7 @@ def phase_linker_setup(options, state, newargs):
     # (because stack overflows will trap rather than corrupting data).
     settings.STACK_FIRST = True
 
-  if '--stack-first' in [x for _, x in state.link_flags]:
+  if state.has_link_flag('--stack-first'):
     settings.STACK_FIRST = True
     if settings.USE_ASAN:
       exit_with_error('--stack-first is not compatible with asan')
@@ -1851,13 +1846,13 @@ def phase_linker_setup(options, state, newargs):
 
 
 @ToolchainProfiler.profile_block('calculate system libraries')
-def phase_calculate_system_libraries(state, linker_arguments, newargs):
+def phase_calculate_system_libraries(linker_arguments, newargs):
   extra_files_to_link = []
   # Link in ports and system libraries, if necessary
   if not settings.SIDE_MODULE:
     # Ports are always linked into the main module, never the side module.
     extra_files_to_link += ports.get_libs(settings)
-  extra_files_to_link += system_libs.calculate(newargs, forced=state.forced_stdlibs)
+  extra_files_to_link += system_libs.calculate(newargs)
   linker_arguments.extend(extra_files_to_link)
 
 
@@ -2635,14 +2630,9 @@ def process_libraries(state, linker_inputs):
 
     logger.debug('looking for library "%s"', lib)
 
-    js_libs, native_lib = building.map_to_js_libs(lib)
+    js_libs = building.map_to_js_libs(lib)
     if js_libs is not None:
       libraries += [(i, js_lib) for js_lib in js_libs]
-      # If native_lib is returned then include it in the link
-      # via forced_stdlibs.
-      if native_lib:
-        state.forced_stdlibs.append(native_lib)
-      continue
 
     # We don't need to resolve system libraries to absolute paths here, we can just
     # let wasm-ld handle that.  However, we do want to map to the correct variant.
@@ -2650,6 +2640,9 @@ def process_libraries(state, linker_inputs):
     if 'lib' + lib in system_libs_map:
       lib = system_libs_map['lib' + lib].get_link_flag()
       new_flags.append((i, lib))
+      continue
+
+    if js_libs is not None:
       continue
 
     if building.map_and_apply_to_settings(lib):
@@ -2901,6 +2894,9 @@ def phase_calculate_linker_inputs(options, state, linker_inputs):
   # Decide what we will link
   process_libraries(state, linker_inputs)
 
+  # Interleave the linker inputs with the linker flags while maintainging their
+  # relative order on the command line (both of these list are pairs, with the
+  # first element being their command line position).
   linker_args = [val for _, val in sorted(linker_inputs + state.link_flags)]
 
   # If we are linking to an intermediate object then ignore other
@@ -2950,7 +2946,7 @@ def run(linker_inputs, options, state, newargs):
     logger.debug('stopping after linking to object file')
     return 0
 
-  phase_calculate_system_libraries(state, linker_arguments, newargs)
+  phase_calculate_system_libraries(linker_arguments, newargs)
 
   js_syms = {}
   if (not settings.SIDE_MODULE or settings.ASYNCIFY) and not shared.SKIP_SUBPROCS:
