@@ -117,9 +117,7 @@ def also_with_wasmfs(f):
     if wasmfs:
       self.set_setting('WASMFS')
       self.emcc_args.append('-DWASMFS')
-      f(self)
-    else:
-      f(self)
+    f(self)
 
   parameterize(metafunc, {'': (False,),
                           'wasmfs': (True,)})
@@ -147,9 +145,7 @@ def also_with_wasmfs_all_backends(f):
       self.set_setting('WASMFS')
       self.emcc_args.append('-DWASMFS')
       self.emcc_args.append(f'-D{backend}')
-      f(self)
-    else:
-      f(self)
+    f(self)
 
   parameterize(metafunc, {'': (None,),
                           'wasmfs': ('WASMFS_MEMORY_BACKEND',),
