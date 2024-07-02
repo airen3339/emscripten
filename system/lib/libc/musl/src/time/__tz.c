@@ -35,8 +35,10 @@ const char __utc[] = "UTC";
 static int dst_off;
 static int r0[5], r1[5];
 
+#ifndef __EMSCRIPTEN__ // XXX Emscripten ignore default timezone from filesystem
 static const unsigned char *zi, *trans, *index, *types, *abbrevs, *abbrevs_end;
 static size_t map_size;
+#endif
 
 static char old_tz_buf[32];
 static char *old_tz = old_tz_buf;
@@ -45,7 +47,7 @@ static size_t old_tz_size = sizeof old_tz_buf;
 static volatile int lock[1];
 volatile int *const __timezone_lockptr = lock;
 
-#ifndef __EMSCRIPTEN__
+#ifndef __EMSCRIPTEN__ // XXX Emscripten ignore default timezone from filesystem
 static int getint(const char **p)
 {
 	unsigned x;
@@ -133,7 +135,7 @@ static size_t zi_dotprod(const unsigned char *z, const unsigned char *v, size_t 
 
 static void do_tzset()
 {
-#ifdef __EMSCRIPTEN__
+#ifdef __EMSCRIPTEN__ // XXX Emscripten ignore default timezone from filesystem
 	static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 	static _Atomic bool done_init = false;
 	if (!done_init) {
@@ -280,7 +282,7 @@ static void do_tzset()
 #endif
 }
 
-#ifndef __EMSCRIPTEN__
+#ifndef __EMSCRIPTEN__ // XXX Emscripten ignore default timezone from filesystem
 /* Search zoneinfo rules to find the one that applies to the given time,
  * and determine alternate opposite-DST-status rule that may be needed. */
 
@@ -456,8 +458,12 @@ const char *__tm_to_tzname(const struct tm *tm)
 	const void *p = tm->__tm_zone;
 	LOCK(lock);
 	do_tzset();
+#ifdef __EMSCRIPTEN__ // XXX Emscripten ignore default timezone from filesystem
+	if (p != __utc && p != __tzname[0] && p != __tzname[1])
+#else
 	if (p != __utc && p != __tzname[0] && p != __tzname[1] &&
 	    (!zi || (uintptr_t)p-(uintptr_t)abbrevs >= abbrevs_end - abbrevs))
+#endif
 		p = "";
 	UNLOCK(lock);
 	return p;
