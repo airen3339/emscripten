@@ -20,6 +20,8 @@ See docs/process.md for more on how version tagging works.
 
 3.1.64 (in development)
 -----------------------
+- The `EM_BOOL` has now be retired and replaced by simply `bool`.  The typedef
+  of `EM_BOOL` to `bool` is still around in order to support legacy code.
 
 3.1.63 - 07/12/24
 -----------------

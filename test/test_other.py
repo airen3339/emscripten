@@ -14950,3 +14950,6 @@ addToLibrary({
     self.assertExists('hello_world.bc')
     # emcc takes care of creating the .o
     self.assertExists('hello_world.o')
+
+  def test_embool(self):
+    self.do_other_test('test_embool.c')
