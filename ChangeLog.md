@@ -20,6 +20,8 @@ See docs/process.md for more on how version tagging works.
 
 3.1.65 (in development)
 -----------------------
+- Emscripten now uses `strptime` from musl rather than using a custom
+  JavaScript implementation. (#21379)
 
 3.1.64 - 07/22/24
 -----------------------
